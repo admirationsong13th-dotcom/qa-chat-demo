@@ -380,11 +380,14 @@
         // 指定どおり：件数は表示しない
         addMessage("bot", "こんにちは。質問を入力してください");
 
-        // デモ品質：よくある質問のチップを最初に出す（最大6件）
-        if (QA.length) {
-          const chips = makeChips(QA.slice(0, 6).map(x => x.q));
-          addMessage("bot", "よくある質問：", chips);
-        }
+        // デモ品質：よくある質問（固定4件）を最初に出す
+const preset = [
+  "ジャグラーシリーズについて教えて",
+  "オススメ機種は？",
+  "新台のデータを出して",
+  "今週出てない台をランキング形式で出して"
+];
+addMessage("bot", "よくある質問：", makeChips(preset));
 
         setReady(true);
         inputEl.focus();
