@@ -5,81 +5,232 @@
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>デモ_ベアジョン_Q&Aチャット</title>
   <style>
-    :root { --bg:#0b1020; --panel:#101a33; --line:#223056; --text:#e9eefc; --muted:#a9b5d6; }
-    body { margin:0; font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif; background:linear-gradient(180deg,#0b1020,#070a14); color:var(--text); }
-    .wrap { max-width: 860px; margin: 0 auto; padding: 18px; }
-    .card { background: rgba(16,26,51,.9); border:1px solid rgba(34,48,86,.9); border-radius: 16px; overflow:hidden; box-shadow: 0 10px 30px rgba(0,0,0,.35); }
-    header { padding: 14px 16px; border-bottom:1px solid rgba(34,48,86,.9); display:flex; gap:10px; align-items:center; }
-    header .dot { width:10px; height:10px; border-radius:999px; background:#5cff9d; box-shadow:0 0 16px rgba(92,255,157,.5); }
-    header h1 { margin:0; font-size: 14px; font-weight: 700; letter-spacing:.02em; }
-    header small { color:var(--muted); }
-    #log { height: 62vh; min-height: 360px; padding: 14px; overflow:auto; background: rgba(7,10,20,.35); }
-    .msg { display:flex; margin: 10px 0; }
-    .msg.user { justify-content:flex-end; }
-    .bubble { max-width: 78%; padding: 10px 12px; border-radius: 14px; line-height: 1.5; white-space: pre-wrap; word-break: break-word; }
-    .user .bubble { background:#2c6cff; color:white; border-bottom-right-radius: 6px; }
-    .bot .bubble { background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.08); border-bottom-left-radius: 6px; }
-    .meta { margin-top:6px; font-size: 12px; color: var(--muted); }
-    .chips { display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-    .chip { background: rgba(255,255,255,.06); border:1px solid rgba(255,255,255,.12); color:var(--text); padding:6px 10px; border-radius: 999px; cursor:pointer; font-size: 12px; }
-    .chip:hover { background: rgba(255,255,255,.10); }
-    footer { border-top:1px solid rgba(34,48,86,.9); padding: 12px; display:flex; gap:10px; align-items:center; }
-    input { flex:1; padding: 12px 12px; border-radius: 12px; border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.06); color: var(--text); outline:none; }
-    input::placeholder { color: rgba(233,238,252,.55); }
-    button { padding: 12px 14px; border-radius: 12px; border:1px solid rgba(255,255,255,.14); background: rgba(255,255,255,.10); color: var(--text); cursor:pointer; font-weight: 700; }
-    button:hover { background: rgba(255,255,255,.16); }
-    .status { padding: 10px 14px; color: var(--muted); font-size: 12px; border-top:1px dashed rgba(34,48,86,.9); }
-    code { font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace; }
+    :root{
+      --bg0:#070a14;
+      --bg1:#0b1020;
+      --card: rgba(16,26,51,.92);
+      --line: rgba(255,255,255,.10);
+      --line2: rgba(34,48,86,.9);
+      --text:#e9eefc;
+      --muted:#a9b5d6;
+      --accent:#5cff9d;
+      --user:#2c6cff;
+      --shadow: 0 18px 40px rgba(0,0,0,.45);
+      --radius:18px;
+    }
+    *{ box-sizing:border-box; }
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 600px at 20% -10%, rgba(92,255,157,.14), transparent 60%),
+        radial-gradient(900px 500px at 90% 0%, rgba(44,108,255,.16), transparent 55%),
+        linear-gradient(180deg, var(--bg1), var(--bg0));
+      min-height:100vh;
+    }
+    .wrap{ max-width: 920px; margin: 0 auto; padding: 18px; }
+    .card{
+      background: var(--card);
+      border: 1px solid var(--line2);
+      border-radius: var(--radius);
+      overflow:hidden;
+      box-shadow: var(--shadow);
+      backdrop-filter: blur(10px);
+    }
+    header{
+      display:flex; align-items:center; justify-content:space-between;
+      gap:12px; padding: 14px 16px;
+      border-bottom: 1px solid var(--line2);
+    }
+    .brand{ display:flex; align-items:center; gap:10px; min-width: 0; }
+    .dot{
+      width:10px; height:10px; border-radius:999px;
+      background: var(--accent);
+      box-shadow: 0 0 18px rgba(92,255,157,.55);
+      flex:0 0 auto;
+    }
+    h1{
+      margin:0; font-size: 14px; font-weight: 800; letter-spacing:.02em;
+      white-space: nowrap; overflow:hidden; text-overflow: ellipsis;
+    }
+    .actions{ display:flex; gap:8px; }
+    .ghost{
+      appearance:none; border:1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 12px;
+      font-weight: 700;
+      cursor:pointer;
+    }
+    .ghost:hover{ background: rgba(255,255,255,.10); }
+
+    #log{
+      height: 62vh; min-height: 360px;
+      padding: 14px;
+      overflow:auto;
+      background: rgba(7,10,20,.32);
+    }
+    .msg{ display:flex; margin: 10px 0; }
+    .msg.user{ justify-content:flex-end; }
+    .bubble{
+      max-width: 78%;
+      padding: 10px 12px;
+      border-radius: 14px;
+      line-height: 1.55;
+      white-space: pre-wrap;
+      word-break: break-word;
+      border:1px solid transparent;
+      transform: translateY(2px);
+      animation: pop .16s ease-out forwards;
+    }
+    @keyframes pop { to { transform: translateY(0);} }
+    .user .bubble{
+      background: var(--user);
+      color:white;
+      border-bottom-right-radius: 6px;
+    }
+    .bot .bubble{
+      background: rgba(255,255,255,.06);
+      border-color: rgba(255,255,255,.08);
+      border-bottom-left-radius: 6px;
+    }
+
+    .typing{
+      display:inline-flex; gap:6px; align-items:center;
+    }
+    .typing i{
+      width:6px; height:6px; border-radius:999px; background: rgba(233,238,252,.65);
+      animation: blink 1s infinite ease-in-out;
+      display:inline-block;
+    }
+    .typing i:nth-child(2){ animation-delay:.15s; }
+    .typing i:nth-child(3){ animation-delay:.30s; }
+    @keyframes blink{
+      0%, 80%, 100%{ opacity:.25; transform: translateY(0); }
+      40%{ opacity:1; transform: translateY(-2px); }
+    }
+
+    .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
+    .chip{
+      border:1px solid var(--line);
+      background: rgba(255,255,255,.06);
+      color: var(--text);
+      padding: 7px 10px;
+      border-radius: 999px;
+      cursor:pointer;
+      font-size: 12px;
+      line-height: 1;
+    }
+    .chip:hover{ background: rgba(255,255,255,.12); }
+
+    footer{
+      border-top: 1px solid var(--line2);
+      padding: 12px;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      background: rgba(16,26,51,.6);
+    }
+    .input{
+      flex:1;
+      display:flex;
+      gap:10px;
+      align-items:center;
+      background: rgba(255,255,255,.06);
+      border:1px solid rgba(255,255,255,.14);
+      border-radius: 14px;
+      padding: 10px 10px;
+    }
+    input{
+      flex:1;
+      border:0;
+      outline:none;
+      background: transparent;
+      color: var(--text);
+      font-size: 14px;
+      padding: 2px 4px;
+    }
+    input::placeholder{ color: rgba(233,238,252,.55); }
+    .send{
+      appearance:none;
+      border:1px solid rgba(255,255,255,.14);
+      background: rgba(255,255,255,.10);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 12px 14px;
+      cursor:pointer;
+      font-weight: 900;
+      letter-spacing:.02em;
+    }
+    .send:hover{ background: rgba(255,255,255,.16); }
+    .send:disabled{ opacity:.55; cursor:not-allowed; }
+
+    .hint{
+      padding: 8px 14px 14px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .hint b{ color: var(--text); }
+    .hide{ display:none !important; }
   </style>
 </head>
+
 <body>
   <div class="wrap">
     <div class="card">
       <header>
-        <div class="dot"></div>
-        <div>
-          <h1>固定Q&Aチャット（デモ） <small>／ qa.json を参照</small></h1>
-          <small id="qaInfo">Q&A読み込み中…</small>
+        <div class="brand">
+          <div class="dot" aria-hidden="true"></div>
+          <!-- ここが画面に見えるタイトル -->
+          <h1>デモ_ベアジョン_Q&Aチャット</h1>
+        </div>
+        <div class="actions">
+          <button class="ghost" id="clear" type="button">会話をクリア</button>
         </div>
       </header>
 
       <div id="log" aria-live="polite"></div>
 
       <footer>
-        <input id="q" type="text" placeholder="質問を入力（例：営業時間は？）" autocomplete="off" />
-        <button id="send">送信</button>
+        <div class="input">
+          <input id="q" type="text" placeholder="質問を入力（例：営業時間は？）" autocomplete="off" />
+        </div>
+        <button class="send" id="send" type="button">送信</button>
       </footer>
 
-      <div class="status" id="status">
-        使い方：<code>qa.json</code> に登録した質問に対して固定回答します（完全一致→部分一致の順）。
-      </div>
+      <!-- 使い方文言は非表示（必要なら開発用に残す） -->
+      <div class="hint hide" id="devHint">使い方：qa.json に登録した質問に対して固定回答します（完全一致→部分一致の順）。</div>
     </div>
   </div>
 
   <script>
     // ====== 設定 ======
-    const QA_JSON_PATH = "./qa.json"; // GitHub Pagesで同じ階層に置く想定
+    const QA_JSON_PATH = "./qa.json";
 
     // ====== 状態 ======
     let QA = [];
+    let isReady = false;
 
-    // ====== ユーティリティ ======
+    // ====== 正規化（揺れ吸収） ======
     function normalize(s) {
       return (s ?? "")
         .toString()
         .trim()
         .toLowerCase()
-        // 半角/全角スペース削除
         .replace(/\s+/g, "")
         .replace(/　+/g, "")
-        // 末尾の?・？は無視したいことが多いので削除
         .replace(/[?？]+$/g, "")
-        // よくある句読点や記号をざっくり除去（必要なら調整）
         .replace(/[。．.、,！!「」『』（）()［］\[\]【】]/g, "");
     }
 
+    // ====== UI ======
+    const logEl = document.getElementById("log");
+    const inputEl = document.getElementById("q");
+    const sendBtn = document.getElementById("send");
+
     function addMessage(role, text, extraNode) {
-      const log = document.getElementById("log");
       const row = document.createElement("div");
       row.className = "msg " + role;
 
@@ -88,16 +239,29 @@
       bubble.textContent = text;
 
       row.appendChild(bubble);
-      log.appendChild(row);
+      logEl.appendChild(row);
 
       if (extraNode) {
-        const wrap = document.createElement("div");
-        wrap.style.marginTop = "6px";
-        row.appendChild(wrap);
-        wrap.appendChild(extraNode);
+        row.appendChild(extraNode);
       }
 
-      log.scrollTop = log.scrollHeight;
+      logEl.scrollTop = logEl.scrollHeight;
+      return row;
+    }
+
+    function addTyping() {
+      const row = document.createElement("div");
+      row.className = "msg bot";
+      const bubble = document.createElement("div");
+      bubble.className = "bubble";
+      const t = document.createElement("span");
+      t.className = "typing";
+      t.innerHTML = "<i></i><i></i><i></i>";
+      bubble.appendChild(t);
+      row.appendChild(bubble);
+      logEl.appendChild(row);
+      logEl.scrollTop = logEl.scrollHeight;
+      return row;
     }
 
     function makeChips(questions) {
@@ -109,110 +273,160 @@
         b.className = "chip";
         b.textContent = q;
         b.onclick = () => {
-          document.getElementById("q").value = q;
-          document.getElementById("q").focus();
+          inputEl.value = q;
+          inputEl.focus();
         };
         box.appendChild(b);
       });
       return box;
     }
 
-    // ====== 検索ロジック（完全一致 → 部分一致） ======
+    function setReady(ready) {
+      isReady = ready;
+      sendBtn.disabled = !ready;
+      inputEl.disabled = !ready;
+      inputEl.placeholder = ready ? "質問を入力（例：営業時間は？）" : "Q&Aを読み込み中…";
+    }
+
+    // ====== 検索（完全一致 → 部分一致） ======
     function findAnswer(userText) {
       const u = normalize(userText);
       if (!u) return { type: "empty" };
 
       // 1) 完全一致
       for (const item of QA) {
-        if (normalize(item.q) === u) {
-          return { type: "exact", item };
-        }
+        if (normalize(item.q) === u) return { type: "exact", item };
       }
 
-      // 2) 部分一致（候補をスコアリング）
+      // 2) 部分一致（軽いスコアリング）
       const scored = QA.map(item => {
         const nq = normalize(item.q);
         let score = 0;
-        if (nq.includes(u)) score += 2;     // 質問文がユーザー入力を含む
-        if (u.includes(nq)) score += 1;     // ユーザー入力が質問文を含む（短い質問に強い）
-        // 文字数が近いほどちょい加点
-        score += Math.max(0, 1 - Math.abs(nq.length - u.length) / 20);
+        if (nq.includes(u)) score += 2;
+        if (u.includes(nq)) score += 1;
+        score += Math.max(0, 1 - Math.abs(nq.length - u.length) / 18);
         return { item, score };
       }).filter(x => x.score > 0);
 
       scored.sort((a,b) => b.score - a.score);
 
       if (scored.length) {
-        const best = scored[0].item;
-        const suggestions = scored.slice(0, 5).map(x => x.item.q);
-        return { type: "partial", item: best, suggestions };
+        return {
+          type: "partial",
+          item: scored[0].item,
+          suggestions: scored.slice(0, 6).map(x => x.item.q)
+        };
       }
 
       return { type: "none" };
     }
 
-    // ====== メイン処理 ======
+    // ====== メイン ======
     async function loadQA() {
+      setReady(false);
+
+      const typingRow = addTyping();
       try {
         const res = await fetch(QA_JSON_PATH, { cache: "no-store" });
         if (!res.ok) throw new Error("fetch failed: " + res.status);
         const data = await res.json();
 
-        // 想定：[{q:"",a:""}...] 形式
         if (!Array.isArray(data)) throw new Error("qa.json is not an array");
+
         QA = data
           .filter(x => x && typeof x.q === "string" && typeof x.a === "string")
           .map(x => ({ q: x.q.trim(), a: x.a.trim() }));
 
-        document.getElementById("qaInfo").textContent = `Q&A ${QA.length}件を読み込みました`;
-        addMessage("bot", "こんにちは。固定Q&Aデモです。質問を入力してください。");
+        typingRow.remove();
+
+        // 指定どおり：件数は表示しない
+        // 指定どおり：挨拶文言を短くする
+        addMessage("bot", "こんにちは。質問を入力してください");
+
+        // それっぽいデモ感：最初に候補チップを少しだけ出す（最大6件）
+        if (QA.length) {
+          const chips = makeChips(QA.slice(0, 6).map(x => x.q));
+          const row = document.createElement("div");
+          row.className = "msg bot";
+          const bubble = document.createElement("div");
+          bubble.className = "bubble";
+          bubble.textContent = "よくある質問：";
+          bubble.appendChild(chips);
+          row.appendChild(bubble);
+          logEl.appendChild(row);
+          logEl.scrollTop = logEl.scrollHeight;
+        }
+
+        setReady(true);
+        inputEl.focus();
+
       } catch (e) {
-        document.getElementById("qaInfo").textContent = "Q&Aの読み込みに失敗しました（qa.json を確認）";
+        typingRow.remove();
         addMessage("bot",
-          "qa.json の読み込みに失敗しました。\n" +
-          "・同じ階層に qa.json があるか\n" +
-          "・JSONの書式が正しいか（カンマや括弧）\n" +
+          "Q&Aの読み込みに失敗しました。\n" +
+          "・qa.json が同じ階層にあるか\n" +
+          "・JSONの書式（カンマ/括弧）が正しいか\n" +
           "を確認してください。"
         );
         console.error(e);
+        setReady(false);
       }
     }
 
     function onSend() {
-      const input = document.getElementById("q");
-      const text = input.value;
-      if (!text.trim()) return;
+      const text = inputEl.value;
+      if (!text || !text.trim()) return;
 
       addMessage("user", text);
-      input.value = "";
+      inputEl.value = "";
 
-      const r = findAnswer(text);
+      const typingRow = addTyping();
+      window.setTimeout(() => {
+        const r = findAnswer(text);
+        typingRow.remove();
 
-      if (r.type === "exact") {
-        addMessage("bot", r.item.a);
-        return;
-      }
+        if (r.type === "exact") {
+          addMessage("bot", r.item.a);
+          return;
+        }
 
-      if (r.type === "partial") {
-        // ベスト回答を返しつつ、候補も出す
-        const node = makeChips(r.suggestions);
-        addMessage("bot", r.item.a + "\n\n（もしかしてこの質問？）", node);
-        return;
-      }
+        if (r.type === "partial") {
+          const wrap = document.createElement("div");
+          wrap.className = "chips";
+          const chips = makeChips(r.suggestions);
+          // chipsはdivなのでそのまま入れる
+          const row = document.createElement("div");
+          row.className = "msg bot";
+          const bubble = document.createElement("div");
+          bubble.className = "bubble";
+          bubble.textContent = r.item.a + "\n\n（もしかして…）";
+          bubble.appendChild(chips);
+          row.appendChild(bubble);
+          logEl.appendChild(row);
+          logEl.scrollTop = logEl.scrollHeight;
+          return;
+        }
 
-      if (r.type === "none") {
-        // よく使う例：上位候補を出したいなら、ここでQAの一部を提示してもOK
-        addMessage("bot", "該当するQ&Aが見つかりませんでした。質問文を少し変えてみてください。");
-        return;
-      }
+        if (r.type === "none") {
+          addMessage("bot", "該当するQ&Aが見つかりませんでした。別の言い方で試してください。");
+          return;
+        }
+      }, 280); // “少し考えてる感”の演出（デモ用）
     }
 
-    // ====== 起動 ======
-    document.getElementById("send").addEventListener("click", onSend);
-    document.getElementById("q").addEventListener("keydown", (e) => {
+    // ====== イベント ======
+    sendBtn.addEventListener("click", onSend);
+    inputEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter") onSend();
     });
 
+    document.getElementById("clear").addEventListener("click", () => {
+      logEl.innerHTML = "";
+      addMessage("bot", "会話をクリアしました。質問を入力してください。");
+      inputEl.focus();
+    });
+
+    // 起動
     loadQA();
   </script>
 </body>
