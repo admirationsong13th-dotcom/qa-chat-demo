@@ -4,104 +4,145 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>デモ_ベアジョン_Q&Aチャット</title>
+
   <style>
     :root{
-      --bg0:#070a14;
-      --bg1:#0b1020;
-      --card: rgba(16,26,51,.92);
-      --line: rgba(255,255,255,.10);
-      --line2: rgba(34,48,86,.9);
-      --text:#e9eefc;
-      --muted:#a9b5d6;
-      --accent:#5cff9d;
-      --user:#2c6cff;
-      --shadow: 0 18px 40px rgba(0,0,0,.45);
+      /* BEAR JOHN ロゴの雰囲気 */
+      --accent:#00A0D0;      /* ロゴの青 */
+      --accent2:#0bb6ea;     /* 少し明るい青 */
+      --bg:#f7fafc;
+      --card:#ffffff;
+      --text:#0f172a;
+      --muted:#64748b;
+      --line:rgba(15,23,42,.10);
+      --shadow:0 18px 45px rgba(15,23,42,.10);
       --radius:18px;
+
+      --bot:#f1f5f9;
+      --user:#00A0D0;
+      --userText:#ffffff;
     }
+
     *{ box-sizing:border-box; }
+    html,body{ height:100%; }
     body{
       margin:0;
       font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
       color:var(--text);
       background:
-        radial-gradient(1200px 600px at 20% -10%, rgba(92,255,157,.14), transparent 60%),
-        radial-gradient(900px 500px at 90% 0%, rgba(44,108,255,.16), transparent 55%),
-        linear-gradient(180deg, var(--bg1), var(--bg0));
-      min-height:100vh;
+        radial-gradient(900px 600px at 15% -10%, rgba(0,160,208,.14), transparent 55%),
+        radial-gradient(900px 600px at 85% 0%, rgba(0,160,208,.08), transparent 55%),
+        linear-gradient(180deg, #ffffff, var(--bg));
     }
-    .wrap{ max-width: 920px; margin: 0 auto; padding: 18px; }
+
+    .wrap{ max-width: 960px; margin: 0 auto; padding: 18px; }
+
     .card{
       background: var(--card);
-      border: 1px solid var(--line2);
+      border: 1px solid var(--line);
       border-radius: var(--radius);
-      overflow:hidden;
       box-shadow: var(--shadow);
-      backdrop-filter: blur(10px);
+      overflow:hidden;
     }
+
     header{
-      display:flex; align-items:center; justify-content:space-between;
-      gap:12px; padding: 14px 16px;
-      border-bottom: 1px solid var(--line2);
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:12px;
+      padding: 14px 16px;
+      border-bottom: 1px solid var(--line);
+      background: linear-gradient(180deg, rgba(0,160,208,.06), rgba(255,255,255,0));
     }
-    .brand{ display:flex; align-items:center; gap:10px; min-width: 0; }
-    .dot{
-      width:10px; height:10px; border-radius:999px;
-      background: var(--accent);
-      box-shadow: 0 0 18px rgba(92,255,157,.55);
-      flex:0 0 auto;
+
+    .brand{
+      display:flex;
+      align-items:center;
+      gap:12px;
+      min-width:0;
     }
+
+    .logo{
+      width: 140px;
+      height: auto;
+      display:block;
+      filter: drop-shadow(0 6px 14px rgba(15,23,42,.10));
+    }
+
+    .titleWrap{ display:flex; flex-direction:column; gap:2px; min-width:0; }
     h1{
-      margin:0; font-size: 14px; font-weight: 800; letter-spacing:.02em;
-      white-space: nowrap; overflow:hidden; text-overflow: ellipsis;
+      margin:0;
+      font-size: 14px;
+      font-weight: 900;
+      letter-spacing:.02em;
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
     }
-    .actions{ display:flex; gap:8px; }
+    .sub{
+      font-size:12px;
+      color:var(--muted);
+      white-space:nowrap;
+      overflow:hidden;
+      text-overflow:ellipsis;
+    }
+
+    .actions{ display:flex; gap:8px; align-items:center; }
     .ghost{
-      appearance:none; border:1px solid var(--line);
-      background: rgba(255,255,255,.06);
+      appearance:none;
+      border: 1px solid var(--line);
+      background: #fff;
       color: var(--text);
       border-radius: 12px;
       padding: 10px 12px;
-      font-weight: 700;
+      font-weight: 800;
       cursor:pointer;
     }
-    .ghost:hover{ background: rgba(255,255,255,.10); }
+    .ghost:hover{ background: rgba(15,23,42,.03); }
 
     #log{
-      height: 62vh; min-height: 360px;
-      padding: 14px;
+      height: 66vh;
+      min-height: 380px;
+      padding: 16px;
       overflow:auto;
-      background: rgba(7,10,20,.32);
+      background:
+        linear-gradient(180deg, rgba(241,245,249,.45), rgba(255,255,255,0));
     }
-    .msg{ display:flex; margin: 10px 0; }
+
+    .msg{ display:flex; margin: 10px 0; gap:8px; }
     .msg.user{ justify-content:flex-end; }
     .bubble{
       max-width: 78%;
       padding: 10px 12px;
       border-radius: 14px;
-      line-height: 1.55;
+      line-height: 1.6;
       white-space: pre-wrap;
       word-break: break-word;
-      border:1px solid transparent;
+      border: 1px solid transparent;
       transform: translateY(2px);
       animation: pop .16s ease-out forwards;
     }
     @keyframes pop { to { transform: translateY(0);} }
+
+    .bot .bubble{
+      background: var(--bot);
+      border-color: rgba(15,23,42,.06);
+      border-bottom-left-radius: 6px;
+      color: var(--text);
+    }
     .user .bubble{
       background: var(--user);
-      color:white;
+      color: var(--userText);
       border-bottom-right-radius: 6px;
-    }
-    .bot .bubble{
-      background: rgba(255,255,255,.06);
-      border-color: rgba(255,255,255,.08);
-      border-bottom-left-radius: 6px;
+      box-shadow: 0 10px 22px rgba(0,160,208,.22);
     }
 
     .typing{
       display:inline-flex; gap:6px; align-items:center;
     }
     .typing i{
-      width:6px; height:6px; border-radius:999px; background: rgba(233,238,252,.65);
+      width:6px; height:6px; border-radius:999px;
+      background: rgba(15,23,42,.45);
       animation: blink 1s infinite ease-in-out;
       display:inline-block;
     }
@@ -114,35 +155,38 @@
 
     .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
     .chip{
-      border:1px solid var(--line);
-      background: rgba(255,255,255,.06);
+      border: 1px solid rgba(0,160,208,.28);
+      background: rgba(0,160,208,.06);
       color: var(--text);
-      padding: 7px 10px;
+      padding: 8px 10px;
       border-radius: 999px;
       cursor:pointer;
       font-size: 12px;
       line-height: 1;
+      font-weight: 700;
     }
-    .chip:hover{ background: rgba(255,255,255,.12); }
+    .chip:hover{ background: rgba(0,160,208,.10); }
 
     footer{
-      border-top: 1px solid var(--line2);
+      border-top: 1px solid var(--line);
       padding: 12px;
       display:flex;
       gap:10px;
       align-items:center;
-      background: rgba(16,26,51,.6);
+      background: #fff;
     }
+
     .input{
       flex:1;
       display:flex;
-      gap:10px;
       align-items:center;
-      background: rgba(255,255,255,.06);
-      border:1px solid rgba(255,255,255,.14);
+      gap:10px;
+      background: rgba(241,245,249,.75);
+      border:1px solid rgba(15,23,42,.10);
       border-radius: 14px;
-      padding: 10px 10px;
+      padding: 10px 12px;
     }
+
     input{
       flex:1;
       border:0;
@@ -150,30 +194,38 @@
       background: transparent;
       color: var(--text);
       font-size: 14px;
-      padding: 2px 4px;
+      padding: 2px 2px;
     }
-    input::placeholder{ color: rgba(233,238,252,.55); }
+    input::placeholder{ color: rgba(100,116,139,.85); }
+
     .send{
       appearance:none;
-      border:1px solid rgba(255,255,255,.14);
-      background: rgba(255,255,255,.10);
-      color: var(--text);
-      border-radius: 12px;
-      padding: 12px 14px;
+      border: 1px solid rgba(0,160,208,.25);
+      background: linear-gradient(180deg, var(--accent2), var(--accent));
+      color: white;
+      border-radius: 14px;
+      padding: 12px 16px;
       cursor:pointer;
       font-weight: 900;
       letter-spacing:.02em;
+      box-shadow: 0 12px 26px rgba(0,160,208,.22);
     }
-    .send:hover{ background: rgba(255,255,255,.16); }
-    .send:disabled{ opacity:.55; cursor:not-allowed; }
+    .send:hover{ filter: brightness(1.02); }
+    .send:disabled{ opacity:.55; cursor:not-allowed; box-shadow:none; }
 
-    .hint{
-      padding: 8px 14px 14px;
-      color: var(--muted);
-      font-size: 12px;
+    /* フォーカスが見えるように（デモ品質UP） */
+    .ghost:focus-visible, .send:focus-visible, input:focus-visible{
+      outline: 3px solid rgba(0,160,208,.25);
+      outline-offset: 2px;
+      border-radius: 12px;
     }
-    .hint b{ color: var(--text); }
-    .hide{ display:none !important; }
+
+    /* 小さめ画面の調整 */
+    @media (max-width: 560px){
+      .logo{ width: 110px; }
+      #log{ height: 64vh; }
+      .bubble{ max-width: 86%; }
+    }
   </style>
 </head>
 
@@ -182,9 +234,12 @@
     <div class="card">
       <header>
         <div class="brand">
-          <div class="dot" aria-hidden="true"></div>
-          <!-- ここが画面に見えるタイトル -->
-          <h1>デモ_ベアジョン_Q&Aチャット</h1>
+          <!-- logo.png をリポジトリ直下にアップした前提 -->
+          <img class="logo" src="./logo.png" alt="BEAR JOHN" onerror="this.style.display='none'">
+          <div class="titleWrap">
+            <h1>デモ_ベアジョン_Q&Aチャット</h1>
+            <div class="sub">固定Q&A（完全一致 → 部分一致）</div>
+          </div>
         </div>
         <div class="actions">
           <button class="ghost" id="clear" type="button">会話をクリア</button>
@@ -199,21 +254,17 @@
         </div>
         <button class="send" id="send" type="button">送信</button>
       </footer>
-
-      <!-- 使い方文言は非表示（必要なら開発用に残す） -->
-      <div class="hint hide" id="devHint">使い方：qa.json に登録した質問に対して固定回答します（完全一致→部分一致の順）。</div>
     </div>
   </div>
 
   <script>
-    // ====== 設定 ======
     const QA_JSON_PATH = "./qa.json";
 
-    // ====== 状態 ======
     let QA = [];
-    let isReady = false;
+    const logEl = document.getElementById("log");
+    const inputEl = document.getElementById("q");
+    const sendBtn = document.getElementById("send");
 
-    // ====== 正規化（揺れ吸収） ======
     function normalize(s) {
       return (s ?? "")
         .toString()
@@ -224,11 +275,6 @@
         .replace(/[?？]+$/g, "")
         .replace(/[。．.、,！!「」『』（）()［］\[\]【】]/g, "");
     }
-
-    // ====== UI ======
-    const logEl = document.getElementById("log");
-    const inputEl = document.getElementById("q");
-    const sendBtn = document.getElementById("send");
 
     function addMessage(role, text, extraNode) {
       const row = document.createElement("div");
@@ -241,9 +287,7 @@
       row.appendChild(bubble);
       logEl.appendChild(row);
 
-      if (extraNode) {
-        row.appendChild(extraNode);
-      }
+      if (extraNode) bubble.appendChild(extraNode);
 
       logEl.scrollTop = logEl.scrollHeight;
       return row;
@@ -282,13 +326,11 @@
     }
 
     function setReady(ready) {
-      isReady = ready;
       sendBtn.disabled = !ready;
       inputEl.disabled = !ready;
       inputEl.placeholder = ready ? "質問を入力（例：営業時間は？）" : "Q&Aを読み込み中…";
     }
 
-    // ====== 検索（完全一致 → 部分一致） ======
     function findAnswer(userText) {
       const u = normalize(userText);
       if (!u) return { type: "empty" };
@@ -298,7 +340,7 @@
         if (normalize(item.q) === u) return { type: "exact", item };
       }
 
-      // 2) 部分一致（軽いスコアリング）
+      // 2) 部分一致
       const scored = QA.map(item => {
         const nq = normalize(item.q);
         let score = 0;
@@ -317,20 +359,17 @@
           suggestions: scored.slice(0, 6).map(x => x.item.q)
         };
       }
-
       return { type: "none" };
     }
 
-    // ====== メイン ======
     async function loadQA() {
       setReady(false);
-
       const typingRow = addTyping();
+
       try {
         const res = await fetch(QA_JSON_PATH, { cache: "no-store" });
         if (!res.ok) throw new Error("fetch failed: " + res.status);
         const data = await res.json();
-
         if (!Array.isArray(data)) throw new Error("qa.json is not an array");
 
         QA = data
@@ -340,21 +379,12 @@
         typingRow.remove();
 
         // 指定どおり：件数は表示しない
-        // 指定どおり：挨拶文言を短くする
         addMessage("bot", "こんにちは。質問を入力してください");
 
-        // それっぽいデモ感：最初に候補チップを少しだけ出す（最大6件）
+        // デモ品質：よくある質問のチップを最初に出す（最大6件）
         if (QA.length) {
           const chips = makeChips(QA.slice(0, 6).map(x => x.q));
-          const row = document.createElement("div");
-          row.className = "msg bot";
-          const bubble = document.createElement("div");
-          bubble.className = "bubble";
-          bubble.textContent = "よくある質問：";
-          bubble.appendChild(chips);
-          row.appendChild(bubble);
-          logEl.appendChild(row);
-          logEl.scrollTop = logEl.scrollHeight;
+          addMessage("bot", "よくある質問：", chips);
         }
 
         setReady(true);
@@ -391,30 +421,15 @@
         }
 
         if (r.type === "partial") {
-          const wrap = document.createElement("div");
-          wrap.className = "chips";
           const chips = makeChips(r.suggestions);
-          // chipsはdivなのでそのまま入れる
-          const row = document.createElement("div");
-          row.className = "msg bot";
-          const bubble = document.createElement("div");
-          bubble.className = "bubble";
-          bubble.textContent = r.item.a + "\n\n（もしかして…）";
-          bubble.appendChild(chips);
-          row.appendChild(bubble);
-          logEl.appendChild(row);
-          logEl.scrollTop = logEl.scrollHeight;
+          addMessage("bot", r.item.a + "\n\n（もしかして…）", chips);
           return;
         }
 
-        if (r.type === "none") {
-          addMessage("bot", "該当するQ&Aが見つかりませんでした。別の言い方で試してください。");
-          return;
-        }
-      }, 280); // “少し考えてる感”の演出（デモ用）
+        addMessage("bot", "該当するQ&Aが見つかりませんでした。別の言い方で試してください。");
+      }, 220);
     }
 
-    // ====== イベント ======
     sendBtn.addEventListener("click", onSend);
     inputEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter") onSend();
@@ -426,7 +441,6 @@
       inputEl.focus();
     });
 
-    // 起動
     loadQA();
   </script>
 </body>
