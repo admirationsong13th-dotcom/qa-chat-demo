@@ -7,9 +7,10 @@
 
   <style>
     :root{
-      /* BEAR JOHN ロゴの雰囲気 */
-      --accent:#00A0D0;      /* ロゴの青 */
-      --accent2:#0bb6ea;     /* 少し明るい青 */
+      /* 添付ロゴの雰囲気：白＋シアン＋黒 */
+      --accent:#00A0D0;
+      --accent2:#0bb6ea;
+
       --bg:#f7fafc;
       --card:#ffffff;
       --text:#0f172a;
@@ -75,13 +76,6 @@
       font-size: 14px;
       font-weight: 900;
       letter-spacing:.02em;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .sub{
-      font-size:12px;
-      color:var(--muted);
       white-space:nowrap;
       overflow:hidden;
       text-overflow:ellipsis;
@@ -162,8 +156,8 @@
       border-radius: 999px;
       cursor:pointer;
       font-size: 12px;
-      line-height: 1;
-      font-weight: 700;
+      line-height: 1.1;
+      font-weight: 800;
     }
     .chip:hover{ background: rgba(0,160,208,.10); }
 
@@ -213,14 +207,12 @@
     .send:hover{ filter: brightness(1.02); }
     .send:disabled{ opacity:.55; cursor:not-allowed; box-shadow:none; }
 
-    /* フォーカスが見えるように（デモ品質UP） */
     .ghost:focus-visible, .send:focus-visible, input:focus-visible{
       outline: 3px solid rgba(0,160,208,.25);
       outline-offset: 2px;
       border-radius: 12px;
     }
 
-    /* 小さめ画面の調整 */
     @media (max-width: 560px){
       .logo{ width: 110px; }
       #log{ height: 64vh; }
@@ -234,7 +226,7 @@
     <div class="card">
       <header>
         <div class="brand">
-          <!-- logo.png をリポジトリ直下にアップした前提 -->
+          <!-- logo.png を同じ階層に置くと表示されます（無ければ自動で非表示） -->
           <img class="logo" src="./logo.png" alt="BEAR JOHN" onerror="this.style.display='none'">
           <div class="titleWrap">
             <h1>デモ_ベアジョン_Q&Aチャット</h1>
@@ -259,10 +251,21 @@
   <script>
     const QA_JSON_PATH = "./qa.json";
 
+    // 指定の「よくある質問」
+    const PRESET_QUESTIONS = [
+      "ジャグラーシリーズについて教えて",
+      "オススメ機種は？",
+      "新台のデータを出して",
+      "今週出てない台をランキング形式で出して"
+    ];
+
     let QA = [];
     const logEl = document.getElementById("log");
     const inputEl = document.getElementById("q");
     const sendBtn = document.getElementById("send");
+
+    // タイピング中キャンセル用（会話クリア等で中断できる）
+    let typingToken = 0;
 
     function normalize(s) {
       return (s ?? "")
@@ -275,24 +278,22 @@
         .replace(/[。．.、,！!「」『』（）()［］\[\]【】]/g, "");
     }
 
-    function addMessage(role, text, extraNode) {
+    function addMessage(role, text) {
       const row = document.createElement("div");
       row.className = "msg " + role;
 
       const bubble = document.createElement("div");
       bubble.className = "bubble";
-      bubble.textContent = text;
+      bubble.textContent = text ?? "";
 
       row.appendChild(bubble);
       logEl.appendChild(row);
 
-      if (extraNode) bubble.appendChild(extraNode);
-
       logEl.scrollTop = logEl.scrollHeight;
-      return row;
+      return { row, bubble };
     }
 
-    function addTyping() {
+    function addTypingDots() {
       const row = document.createElement("div");
       row.className = "msg bot";
       const bubble = document.createElement("div");
@@ -330,16 +331,60 @@
       inputEl.placeholder = ready ? "質問を入力（例：営業時間は？）" : "Q&Aを読み込み中…";
     }
 
+    function sleep(ms) {
+      return new Promise(r => setTimeout(r, ms));
+    }
+
+    // 文字単位タイピング（吹き出しクリックでスキップ）
+    async function typeText(bubble, fullText, speedMs = 18, tokenAtStart = 0) {
+      let skip = false;
+      const onClick = () => { skip = true; };
+      bubble.addEventListener("click", onClick, { once: true });
+
+      bubble.textContent = "";
+      for (let i = 0; i < fullText.length; i++) {
+        if (typingToken !== tokenAtStart) return; // 中断
+        if (skip) {
+          bubble.textContent = fullText;
+          break;
+        }
+        bubble.textContent += fullText[i];
+        logEl.scrollTop = logEl.scrollHeight;
+
+        if (fullText[i] === "\n") {
+          await sleep(Math.max(6, Math.floor(speedMs / 2)));
+        } else {
+          await sleep(speedMs);
+        }
+      }
+    }
+
+    async function botTypeMessage(text, extraNode) {
+      // 二重送信防止
+      setReady(false);
+
+      const token = ++typingToken;
+      const { bubble } = addMessage("bot", "");
+
+      await typeText(bubble, text, 18, token);
+
+      if (typingToken !== token) return; // 中断されてたら何もしない
+
+      if (extraNode) bubble.appendChild(extraNode);
+
+      setReady(true);
+      inputEl.focus();
+    }
+
+    // 検索（完全一致 → 部分一致）
     function findAnswer(userText) {
       const u = normalize(userText);
       if (!u) return { type: "empty" };
 
-      // 1) 完全一致
       for (const item of QA) {
         if (normalize(item.q) === u) return { type: "exact", item };
       }
 
-      // 2) 部分一致
       const scored = QA.map(item => {
         const nq = normalize(item.q);
         let score = 0;
@@ -363,7 +408,7 @@
 
     async function loadQA() {
       setReady(false);
-      const typingRow = addTyping();
+      const dots = addTypingDots();
 
       try {
         const res = await fetch(QA_JSON_PATH, { cache: "no-store" });
@@ -375,26 +420,21 @@
           .filter(x => x && typeof x.q === "string" && typeof x.a === "string")
           .map(x => ({ q: x.q.trim(), a: x.a.trim() }));
 
-        typingRow.remove();
+        dots.remove();
 
-        // 指定どおり：件数は表示しない
-        addMessage("bot", "こんにちは。質問を入力してください");
+        // 指定どおり：件数は表示しない／挨拶は短く
+        await botTypeMessage("こんにちは。質問を入力してください");
 
-        // デモ品質：よくある質問（固定4件）を最初に出す
-const preset = [
-  "ジャグラーシリーズについて教えて",
-  "オススメ機種は？",
-  "新台のデータを出して",
-  "今週出てない台をランキング形式で出して"
-];
-addMessage("bot", "よくある質問：", makeChips(preset));
+        // 指定の「よくある質問」を固定表示
+        const chips = makeChips(PRESET_QUESTIONS);
+        await botTypeMessage("よくある質問：", chips);
 
         setReady(true);
         inputEl.focus();
 
       } catch (e) {
-        typingRow.remove();
-        addMessage("bot",
+        dots.remove();
+        await botTypeMessage(
           "Q&Aの読み込みに失敗しました。\n" +
           "・qa.json が同じ階層にあるか\n" +
           "・JSONの書式（カンマ/括弧）が正しいか\n" +
@@ -405,31 +445,32 @@ addMessage("bot", "よくある質問：", makeChips(preset));
       }
     }
 
-    function onSend() {
+    async function onSend() {
       const text = inputEl.value;
-      if (!text || !text.trim()) return;
+      if (!text || !text.trim() || sendBtn.disabled) return;
 
       addMessage("user", text);
       inputEl.value = "";
 
-      const typingRow = addTyping();
-      window.setTimeout(() => {
-        const r = findAnswer(text);
-        typingRow.remove();
+      // “考えてる感”の点々 → 返答をタイピング
+      const dots = addTypingDots();
+      await sleep(220);
+      dots.remove();
 
-        if (r.type === "exact") {
-          addMessage("bot", r.item.a);
-          return;
-        }
+      const r = findAnswer(text);
 
-        if (r.type === "partial") {
-          const chips = makeChips(r.suggestions);
-          addMessage("bot", r.item.a + "\n\n（もしかして…）", chips);
-          return;
-        }
+      if (r.type === "exact") {
+        await botTypeMessage(r.item.a);
+        return;
+      }
 
-        addMessage("bot", "該当するQ&Aが見つかりませんでした。別の言い方で試してください。");
-      }, 220);
+      if (r.type === "partial") {
+        const chips = makeChips(r.suggestions);
+        await botTypeMessage(r.item.a + "\n\n（もしかして…）", chips);
+        return;
+      }
+
+      await botTypeMessage("該当するQ&Aが見つかりませんでした。別の言い方で試してください。");
     }
 
     sendBtn.addEventListener("click", onSend);
@@ -437,10 +478,11 @@ addMessage("bot", "よくある質問：", makeChips(preset));
       if (e.key === "Enter") onSend();
     });
 
-    document.getElementById("clear").addEventListener("click", () => {
+    document.getElementById("clear").addEventListener("click", async () => {
+      // タイピングを中断
+      typingToken++;
       logEl.innerHTML = "";
-      addMessage("bot", "会話をクリアしました。質問を入力してください。");
-      inputEl.focus();
+      await botTypeMessage("会話をクリアしました。質問を入力してください。");
     });
 
     loadQA();
