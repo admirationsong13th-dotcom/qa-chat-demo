@@ -35,7 +35,7 @@
         linear-gradient(180deg, #ffffff, var(--bg));
     }
 
-    .wrap{ max-width: 960px; margin: 0 auto; padding: 18px; }
+    .wrap{ max-width: 980px; margin: 0 auto; padding: 18px; }
     .card{
       background: var(--card);
       border: 1px solid var(--line);
@@ -78,8 +78,26 @@
       overflow:hidden;
       text-overflow:ellipsis;
     }
+    .badge{
+      display:inline-flex;
+      align-items:center;
+      gap:6px;
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
+    }
+    .pill{
+      display:inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(0,160,208,.25);
+      background: rgba(0,160,208,.06);
+      color: var(--text);
+      font-weight: 900;
+      font-size: 12px;
+    }
 
-    .actions{ display:flex; gap:8px; align-items:center; }
+    .actions{ display:flex; gap:8px; align-items:center; flex:0 0 auto; }
     .ghost{
       appearance:none;
       border: 1px solid var(--line);
@@ -94,7 +112,7 @@
 
     #log{
       height: 66vh;
-      min-height: 380px;
+      min-height: 390px;
       padding: 16px;
       overflow:auto;
       background: linear-gradient(180deg, rgba(241,245,249,.45), rgba(255,255,255,0));
@@ -154,11 +172,18 @@
       border-radius: 999px;
       cursor:pointer;
       font-size: 12px;
-      line-height: 1.1;
-      font-weight: 800;
+      line-height: 1.15;
+      font-weight: 900;
       text-align:left;
+      transition: transform .05s ease-out;
     }
     .chip:hover{ background: rgba(0,160,208,.10); }
+    .chip:active{ transform: translateY(1px); }
+
+    .chipPrimary{
+      border-color: rgba(0,160,208,.35);
+      background: linear-gradient(180deg, rgba(11,182,234,.14), rgba(0,160,208,.08));
+    }
 
     footer{
       border-top: 1px solid var(--line);
@@ -206,16 +231,24 @@
     .send:hover{ filter: brightness(1.02); }
     .send:disabled{ opacity:.55; cursor:not-allowed; box-shadow:none; }
 
-    .ghost:focus-visible, .send:focus-visible, input:focus-visible{
+    .ghost:focus-visible, .send:focus-visible, input:focus-visible, .chip:focus-visible{
       outline: 3px solid rgba(0,160,208,.25);
       outline-offset: 2px;
       border-radius: 12px;
+    }
+
+    .tiny{
+      font-size: 12px;
+      color: var(--muted);
+      font-weight: 800;
     }
 
     @media (max-width: 560px){
       .logo{ width: 110px; }
       #log{ height: 64vh; }
       .bubble{ max-width: 86%; }
+      .actions{ gap:6px; }
+      .ghost{ padding: 10px 10px; }
     }
   </style>
 </head>
@@ -228,9 +261,14 @@
           <img class="logo" src="./logo.png" alt="BEAR JOHN" onerror="this.style.display='none'">
           <div class="titleWrap">
             <h1>デモ_ベアジョン_Q&Aチャット</h1>
+            <div class="badge">
+              現在のジャンル：
+              <span class="pill" id="genrePill">未選択</span>
+            </div>
           </div>
         </div>
         <div class="actions">
+          <button class="ghost" id="changeGenre" type="button">ジャンル変更</button>
           <button class="ghost" id="clear" type="button">会話をクリア</button>
         </div>
       </header>
@@ -239,9 +277,9 @@
 
       <footer>
         <div class="input">
-          <input id="q" type="text" placeholder="質問を入力（例：営業時間は？）" autocomplete="off" />
+          <input id="q" type="text" placeholder="ジャンルを選んでから質問してください" autocomplete="off" />
         </div>
-        <button class="send" id="send" type="button">送信</button>
+        <button class="send" id="send" type="button" disabled>送信</button>
       </footer>
     </div>
   </div>
@@ -252,7 +290,7 @@
   <script>
     const QA_JSON_PATH = "./qa.json";
 
-    // 指定の「よくある質問」
+    // “よくある質問”は「遊技台・オススメ」系の例として固定表示
     const PRESET_QUESTIONS = [
       "ジャグラーシリーズについて教えて",
       "オススメ機種は？",
@@ -260,25 +298,43 @@
       "今週出てない台をランキング形式で出して"
     ];
 
+    // ====== ジャンル定義 ======
+    const GENRES = [
+      { id: "store", label: "営業時間や設備などに関するお問い合わせ" },
+      { id: "machines", label: "遊技台やオススメ機種などに関するお問い合わせ" },
+      { id: "requests", label: "店舗への要望など" }
+    ];
+
+    // ジャンル自動分類キーワード（qa.jsonは編集不要）
+    // ※必要に応じて増やしてください（精度が上がります）
+    const GENRE_KEYWORDS = {
+      store: [
+        "営業時間","開店","閉店","何時","営業","住所","場所","行き方","アクセス","最寄","電話","番号",
+        "駐車場","駐輪","トイレ","喫煙","分煙","休憩","設備","Wi-Fi","wifi","充電","ロッカー","景品","交換","レート"
+      ],
+      machines: [
+        "台","機種","おすすめ","オススメ","推し","新台","新機種","導入","入替","最新","データ","ランキング",
+        "ジャグラー","juggler","アイム","マイ","ゴーゴー","gogo","ファンキー","ハッピー","北斗","からくり","モンキー"
+      ],
+      requests: [
+        "要望","改善","お願い","クレーム","苦情","意見","希望","不満","対応","接客","店員","清掃","汚い","暑い","寒い","音","臭い","並び","ルール"
+      ]
+    };
+
     // ====== 状態 ======
     let QA = [];
+    let currentGenre = null; // "store" | "machines" | "requests" | null
 
-    // Fuse検索（全体＋カテゴリ別）
-    let fuses = { all: null, new: null, recommend: null, juggler: null };
+    // Fuse（全体＋ジャンル別）
+    let fuses = { all: null, store: null, machines: null, requests: null };
 
     const logEl = document.getElementById("log");
     const inputEl = document.getElementById("q");
     const sendBtn = document.getElementById("send");
+    const genrePill = document.getElementById("genrePill");
 
     // タイピング中キャンセル用（会話クリア等で中断できる）
     let typingToken = 0;
-
-    // ====== キーワード定義（カテゴリ判定用） ======
-    const INTENT_KEYWORDS = {
-      new: ["新台","新機種","導入","入替","最新","デビュー"],
-      recommend: ["おすすめ","オススメ","推し","どれがいい","何がいい","選び方","人気","勝てる","狙い目"],
-      juggler: ["ジャグラー","juggler","アイム","マイ","ゴーゴー","gogo","ファンキー","ハッピー","ミスター","ガールズ"]
-    };
 
     // ====== 表記ゆれ吸収（必要なら増やしてOK） ======
     function replaceVariants(s){
@@ -290,7 +346,6 @@
         .replace(/ｼﾞｬｸﾞﾗｰ/g, "ジャグラー");
     }
 
-    // ====== 正規化 ======
     function normalize(s) {
       return replaceVariants(s)
         .toString()
@@ -300,24 +355,6 @@
         .replace(/　+/g, "")
         .replace(/[?？]+$/g, "")
         .replace(/[。．.、,！!「」『』（）()［］\[\]【】]/g, "");
-    }
-
-    function detectIntent(userText){
-      const t = normalize(userText);
-      // 優先度：ジャグラー > 新台 > オススメ
-      if (INTENT_KEYWORDS.juggler.some(k => t.includes(normalize(k)))) return "juggler";
-      if (INTENT_KEYWORDS.new.some(k => t.includes(normalize(k)))) return "new";
-      if (INTENT_KEYWORDS.recommend.some(k => t.includes(normalize(k)))) return "recommend";
-      return "all";
-    }
-
-    function makeFuse(list){
-      return new Fuse(list ?? [], {
-        keys: ["q"],
-        includeScore: true,
-        threshold: 0.35,      // 小さいほど厳しい（0.25〜0.45で調整）
-        ignoreLocation: true
-      });
     }
 
     // ====== UI ======
@@ -351,33 +388,32 @@
       return row;
     }
 
-    function makeChips(questions) {
+    function makeChips(labels, onClick, primary=false) {
       const box = document.createElement("div");
       box.className = "chips";
-      questions.forEach(q => {
+      labels.forEach((label, idx) => {
         const b = document.createElement("button");
         b.type = "button";
-        b.className = "chip";
-        b.textContent = q;
-        b.onclick = () => {
-          inputEl.value = q;
-          inputEl.focus();
-        };
+        b.className = "chip" + (primary ? " chipPrimary" : "");
+        b.textContent = label;
+        b.onclick = () => onClick(label, idx);
         box.appendChild(b);
       });
       return box;
     }
 
     function setReady(ready) {
-      sendBtn.disabled = !ready;
+      // ジャンル未選択なら常に送信不可
+      const ok = ready && !!currentGenre;
+      sendBtn.disabled = !ok;
       inputEl.disabled = !ready;
-      inputEl.placeholder = ready ? "質問を入力（例：営業時間は？）" : "Q&Aを読み込み中…";
+      inputEl.placeholder = currentGenre
+        ? "質問を入力してください"
+        : "まずジャンルを選んでください";
     }
 
     // ====== タイピング ======
-    function sleep(ms) {
-      return new Promise(r => setTimeout(r, ms));
-    }
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
     async function typeText(bubble, fullText, speedMs = 18, tokenAtStart = 0) {
       let skip = false;
@@ -385,11 +421,8 @@
 
       bubble.textContent = "";
       for (let i = 0; i < fullText.length; i++) {
-        if (typingToken !== tokenAtStart) return; // 中断
-        if (skip) {
-          bubble.textContent = fullText;
-          break;
-        }
+        if (typingToken !== tokenAtStart) return;
+        if (skip) { bubble.textContent = fullText; break; }
         bubble.textContent += fullText[i];
         logEl.scrollTop = logEl.scrollHeight;
 
@@ -402,37 +435,130 @@
     }
 
     async function botTypeMessage(text, extraNode) {
-      setReady(false);
+      // ready=false（送信不可）にして、タイピング重なりを防ぐ
+      const prevGenre = currentGenre; // 表示更新のため
+      sendBtn.disabled = true;
+      inputEl.disabled = true;
 
       const token = ++typingToken;
       const { bubble } = addMessage("bot", "");
 
       await typeText(bubble, text, 18, token);
-
       if (typingToken !== token) return;
+
       if (extraNode) bubble.appendChild(extraNode);
 
+      inputEl.disabled = false;
       setReady(true);
+      // 変なタイミングでジャンルが変わっても整合性保つ
+      if (prevGenre !== currentGenre) setGenreUI();
       inputEl.focus();
     }
 
-    // ====== 検索（完全一致 → カテゴリ絞りFuse → 全体Fuse → フォールバック） ======
+    // ====== Fuseインデックス作成 ======
+    function makeFuse(list){
+      return new Fuse(list ?? [], {
+        keys: ["q"],
+        includeScore: true,
+        threshold: 0.35,      // 0.25〜0.45で調整
+        ignoreLocation: true
+      });
+    }
+
+    function classifyByKeywords(item){
+      const text = normalize(item.q + " " + item.a);
+      const hits = {
+        store: GENRE_KEYWORDS.store.some(k => text.includes(normalize(k))),
+        machines: GENRE_KEYWORDS.machines.some(k => text.includes(normalize(k))),
+        requests: GENRE_KEYWORDS.requests.some(k => text.includes(normalize(k)))
+      };
+
+      // 複数ヒットする場合は優先度で決める（用途に合わせて調整可）
+      // 例：要望っぽい語があるなら requests を優先
+      if (hits.requests) return "requests";
+      if (hits.machines) return "machines";
+      if (hits.store) return "store";
+
+      // どれにも当たらないものは store に寄せる（無難）
+      return "store";
+    }
+
+    function buildFuses(){
+      if (!window.Fuse) {
+        fuses = { all:null, store:null, machines:null, requests:null };
+        return;
+      }
+      fuses.all = makeFuse(QA);
+
+      const groups = { store: [], machines: [], requests: [] };
+      for (const item of QA) {
+        const g = classifyByKeywords(item);
+        groups[g].push(item);
+      }
+
+      fuses.store = makeFuse(groups.store);
+      fuses.machines = makeFuse(groups.machines);
+      fuses.requests = makeFuse(groups.requests);
+    }
+
+    // ====== ジャンル選択 ======
+    function setGenreUI(){
+      if (!currentGenre){
+        genrePill.textContent = "未選択";
+        return;
+      }
+      const g = GENRES.find(x => x.id === currentGenre);
+      genrePill.textContent = g ? g.label : currentGenre;
+    }
+
+    async function promptGenreSelection(){
+      currentGenre = null;
+      setGenreUI();
+      setReady(true); // inputは使えるが送信は不可
+
+      const labels = GENRES.map(g => g.label);
+      const chips = makeChips(labels, async (_label, idx) => {
+        currentGenre = GENRES[idx].id;
+        setGenreUI();
+        // 選択後の案内（デモ用）
+        await botTypeMessage("ジャンルを選びました。質問を入力してください。");
+
+        // “よくある質問”は machinesジャンルのデモ例として表示
+        if (currentGenre === "machines") {
+          await botTypeMessage("よくある質問：", makeChips(PRESET_QUESTIONS, (q) => {
+            inputEl.value = q;
+            inputEl.focus();
+          }, true));
+        }
+
+        setReady(true);
+      }, true);
+
+      await botTypeMessage("まずジャンルを選んでください：", chips);
+    }
+
+    // ====== 検索 ======
     function findAnswer(userText) {
       const raw = replaceVariants(userText);
       const u = normalize(raw);
       if (!u) return { type: "empty" };
 
-      // 1) 完全一致
-      for (const item of QA) {
+      // 1) 完全一致（ジャンル内）
+      const list =
+        currentGenre === "store" ? (fuses.store? fuses.store._docs : QA) :
+        currentGenre === "machines" ? (fuses.machines? fuses.machines._docs : QA) :
+        currentGenre === "requests" ? (fuses.requests? fuses.requests._docs : QA) :
+        QA;
+
+      for (const item of list) {
         if (normalize(item.q) === u) return { type: "exact", item };
       }
 
-      // 2) カテゴリ絞りFuse
-      const intent = detectIntent(raw);
+      // 2) ジャンル内Fuse
       const fuseToUse =
-        (intent === "new" && fuses.new) ? fuses.new :
-        (intent === "recommend" && fuses.recommend) ? fuses.recommend :
-        (intent === "juggler" && fuses.juggler) ? fuses.juggler :
+        currentGenre === "store" ? fuses.store :
+        currentGenre === "machines" ? fuses.machines :
+        currentGenre === "requests" ? fuses.requests :
         fuses.all;
 
       if (fuseToUse && typeof fuseToUse.search === "function") {
@@ -458,26 +584,6 @@
         }
       }
 
-      // 4) 最終フォールバック（includesベース）
-      const scored = QA.map(item => {
-        const nq = normalize(item.q);
-        let score = 0;
-        if (nq.includes(u)) score += 2;
-        if (u.includes(nq)) score += 1;
-        score += Math.max(0, 1 - Math.abs(nq.length - u.length) / 18);
-        return { item, score };
-      }).filter(x => x.score > 0);
-
-      scored.sort((a,b) => b.score - a.score);
-
-      if (scored.length) {
-        return {
-          type: "partial",
-          item: scored[0].item,
-          suggestions: scored.slice(0, 6).map(x => x.item.q)
-        };
-      }
-
       return { type: "none" };
     }
 
@@ -497,32 +603,11 @@
           .filter(x => x && typeof x.q === "string" && typeof x.a === "string")
           .map(x => ({ q: x.q.trim(), a: x.a.trim() }));
 
-        // Fuseインデックス作成（カテゴリ別に絞る）
-        if (window.Fuse) {
-          fuses.all = makeFuse(QA);
-
-          // q と a の両方を見て振り分け（qa.jsonをいじらず精度を上げる）
-          const groups = { new: [], recommend: [], juggler: [] };
-
-          for (const item of QA) {
-            const text = normalize(item.q + " " + item.a);
-
-            if (INTENT_KEYWORDS.new.some(k => text.includes(normalize(k)))) groups.new.push(item);
-            if (INTENT_KEYWORDS.recommend.some(k => text.includes(normalize(k)))) groups.recommend.push(item);
-            if (INTENT_KEYWORDS.juggler.some(k => text.includes(normalize(k)))) groups.juggler.push(item);
-          }
-
-          fuses.new = makeFuse(groups.new);
-          fuses.recommend = makeFuse(groups.recommend);
-          fuses.juggler = makeFuse(groups.juggler);
-        } else {
-          fuses = { all:null, new:null, recommend:null, juggler:null };
-        }
-
+        buildFuses();
         dots.remove();
 
         await botTypeMessage("こんにちは。質問を入力してください");
-        await botTypeMessage("よくある質問：", makeChips(PRESET_QUESTIONS));
+        await promptGenreSelection();
 
         setReady(true);
         inputEl.focus();
@@ -545,6 +630,13 @@
       const text = inputEl.value;
       if (!text || !text.trim() || sendBtn.disabled) return;
 
+      // ジャンル未選択なら、質問前に選ばせる
+      if (!currentGenre) {
+        inputEl.value = "";
+        await promptGenreSelection();
+        return;
+      }
+
       addMessage("user", text);
       inputEl.value = "";
 
@@ -560,13 +652,24 @@
       }
 
       if (r.type === "partial") {
-        await botTypeMessage(r.item.a + "\n\n（もしかして…）", makeChips(r.suggestions));
+        await botTypeMessage(r.item.a + "\n\n（もしかして…）",
+          makeChips(r.suggestions, (q) => {
+            inputEl.value = q;
+            inputEl.focus();
+          })
+        );
         return;
       }
 
-      await botTypeMessage("該当するQ&Aが見つかりませんでした。別の言い方で試してください。");
+      await botTypeMessage(
+        "該当するQ&Aが見つかりませんでした。\n" +
+        "・言い方を変える\n" +
+        "・ジャンルを変更する\n" +
+        "のどちらかを試してください。"
+      );
     }
 
+    // ====== ボタン ======
     sendBtn.addEventListener("click", onSend);
     inputEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter") onSend();
@@ -575,7 +678,12 @@
     document.getElementById("clear").addEventListener("click", async () => {
       typingToken++; // タイピング中断
       logEl.innerHTML = "";
-      await botTypeMessage("会話をクリアしました。質問を入力してください。");
+      await botTypeMessage("会話をクリアしました。");
+      await promptGenreSelection();
+    });
+
+    document.getElementById("changeGenre").addEventListener("click", async () => {
+      await promptGenreSelection();
     });
 
     loadQA();
