@@ -119,7 +119,12 @@
     }
 
     /* ===== chat row ===== */
-    .msg{ display:flex; margin: 12px 0; gap:10px; align-items:flex-end; }
+    .msg{
+      display:flex;
+      margin: 12px 0;
+      gap:10px;
+      align-items:flex-end;
+    }
     .msg.user{ justify-content:flex-end; }
 
     .avatar{
@@ -135,15 +140,20 @@
       user-select:none;
       border: 1px solid rgba(15,23,42,.08);
       box-shadow: 0 10px 22px rgba(15,23,42,.06);
-    }
-    .avatar.bot{
-      background: rgba(0,160,208,.10);
-      color: rgba(15,23,42,.85);
+      overflow:hidden; /* 画像用 */
+      background: #fff;
     }
     .avatar.user{
       background: rgba(0,160,208,.95);
       color: #fff;
       border-color: rgba(0,160,208,.35);
+      box-shadow: 0 10px 22px rgba(0,160,208,.22);
+    }
+    .avatar img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+      display:block;
     }
 
     /* ===== speech bubble ===== */
@@ -173,6 +183,9 @@
       border-color: rgba(0,160,208,.35);
       border-bottom-right-radius: 6px;
       box-shadow: 0 10px 22px rgba(0,160,208,.22);
+      text-align:left;
+      /* ★短文でも小さくなりすぎない調整 */
+      min-width: 140px;         /* ここで「短すぎ」を解消 */
     }
 
     /* bubble tails */
@@ -298,6 +311,7 @@
       .actions{ gap:6px; }
       .ghost{ padding: 10px 10px; }
       .avatar{ width: 32px; height: 32px; }
+      .user .bubble{ min-width: 120px; } /* モバイルは少し小さめ */
     }
   </style>
 </head>
@@ -338,6 +352,7 @@
 
   <script>
     const QA_JSON_PATH = "./qa.json";
+    const BOT_AVATAR_SRC = "./bot.png"; // ★ボット側だけ画像
 
     // “よくある質問”例（machinesジャンルのデモ用）
     const PRESET_QUESTIONS = [
@@ -347,14 +362,14 @@
       "今週出てない台をランキング形式で出して"
     ];
 
-    // ====== ジャンル定義 ======
+    // ジャンル
     const GENRES = [
       { id: "store", label: "営業時間や設備などに関するお問い合わせ" },
       { id: "machines", label: "遊技台やオススメ機種などに関するお問い合わせ" },
       { id: "requests", label: "店舗への要望など" }
     ];
 
-    // ジャンル自動分類キーワード（qa.jsonは編集不要）
+    // ジャンル自動分類キーワード（qa.jsonはいじらない前提）
     const GENRE_KEYWORDS = {
       store: [
         "営業時間","開店","閉店","何時","営業","住所","場所","行き方","アクセス","最寄","電話","番号",
@@ -363,7 +378,6 @@
       machines: [
         "台","機種","おすすめ","オススメ","推し","どれがいい","何がいい",
         "新台","新機種","導入","入替","最新","データ","ランキング",
-        // ジャグラー強化
         "ジャグラー","ジャグ","juggler","jug","アイム","マイ","マイジャグ","ゴーゴー","gogo","ファンキー","ハッピー","ミスター","ガールズ"
       ],
       requests: [
@@ -372,14 +386,11 @@
       ]
     };
 
-    // ====== 状態 ======
+    // 状態
     let QA = [];
-    let currentGenre = null; // "store" | "machines" | "requests" | null
+    let currentGenre = null;
 
-    // ジャンルごとの候補リスト（安全に保持）
     let genreDocs = { all: [], store: [], machines: [], requests: [] };
-
-    // Fuse（全体＋ジャンル別）
     let fuses = { all: null, store: null, machines: null, requests: null };
 
     const logEl = document.getElementById("log");
@@ -387,10 +398,9 @@
     const sendBtn = document.getElementById("send");
     const genrePill = document.getElementById("genrePill");
 
-    // タイピング中キャンセル用
     let typingToken = 0;
 
-    // ====== 表記ゆれ吸収（ジャグラー強化） ======
+    // 表記ゆれ（ジャグラー強化）
     function replaceVariants(s){
       return (s ?? "")
         .replace(/オススメ/g, "おすすめ")
@@ -399,7 +409,6 @@
         .replace(/JUGGLER/ig, "ジャグラー")
         .replace(/\bjug\b/ig, "ジャグラー")
         .replace(/ｼﾞｬｸﾞﾗｰ/g, "ジャグラー")
-        // 略称を寄せる
         .replace(/マイジャグ/ig, "ジャグラー")
         .replace(/アイム/ig, "ジャグラー")
         .replace(/ジャグ/ig, "ジャグラー");
@@ -416,37 +425,40 @@
         .replace(/[。．.、,！!「」『』（）()［］\[\]【】]/g, "");
     }
 
-    // ====== UI ======
-    function addMessage(role, text, withAvatar=true) {
+    // UI
+    function makeBotAvatarEl(){
+      const av = document.createElement("div");
+      av.className = "avatar bot";
+      const img = document.createElement("img");
+      img.src = BOT_AVATAR_SRC;
+      img.alt = "bot";
+      img.onerror = () => { av.textContent = "B"; }; // 画像が無い時の保険
+      av.appendChild(img);
+      return av;
+    }
+
+    function makeUserAvatarEl(){
+      const av = document.createElement("div");
+      av.className = "avatar user";
+      av.textContent = "You";
+      return av;
+    }
+
+    function addMessage(role, text) {
       const row = document.createElement("div");
       row.className = "msg " + role;
-
-      if (withAvatar) {
-        const av = document.createElement("div");
-        av.className = "avatar " + role;
-        av.textContent = role === "bot" ? "B" : "You";
-        if (role === "user") row.appendChild(document.createElement("div")); // 左の余白合わせ用ダミー
-        row.appendChild(av);
-      }
 
       const bubble = document.createElement("div");
       bubble.className = "bubble";
       bubble.textContent = text ?? "";
 
-      if (role === "user") {
-        // userは右寄せ： avatar（右） + bubble（右）
-        row.innerHTML = "";
-        const bubbleWrap = document.createElement("div");
-        bubbleWrap.appendChild(bubble);
-        row.appendChild(bubbleWrap);
-
-        const av = document.createElement("div");
-        av.className = "avatar user";
-        av.textContent = "You";
-        row.appendChild(av);
-      } else {
-        // bot： avatar + bubble
+      if (role === "bot") {
+        row.appendChild(makeBotAvatarEl());
         row.appendChild(bubble);
+      } else {
+        // user：吹き出し→アバター（右）
+        row.appendChild(bubble);
+        row.appendChild(makeUserAvatarEl());
       }
 
       logEl.appendChild(row);
@@ -458,17 +470,13 @@
       const row = document.createElement("div");
       row.className = "msg bot";
 
-      const av = document.createElement("div");
-      av.className = "avatar bot";
-      av.textContent = "B";
-
       const bubble = document.createElement("div");
       bubble.className = "bubble";
       const span = document.createElement("span");
       span.className = "thinking";
       bubble.appendChild(span);
 
-      row.appendChild(av);
+      row.appendChild(makeBotAvatarEl());
       row.appendChild(bubble);
 
       logEl.appendChild(row);
@@ -503,7 +511,7 @@
       inputEl.placeholder = currentGenre ? "質問を入力してください" : "まずジャンルを選んでください";
     }
 
-    // ====== タイピング ======
+    // タイピング
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
     async function typeText(bubble, fullText, speedMs = 18, tokenAtStart = 0) {
@@ -526,7 +534,6 @@
     }
 
     async function botTypeMessage(text, extraNode) {
-      // 入力停止（重なり防止）
       sendBtn.disabled = true;
       inputEl.disabled = true;
 
@@ -543,16 +550,15 @@
       inputEl.focus();
     }
 
-    // ====== Fuse ======
+    // Fuse
     function makeFuse(list){
       return new Fuse(list ?? [], {
-        // ★ q と a の両方を検索（精度UP）
         keys: [
           { name: "q", weight: 0.8 },
           { name: "a", weight: 0.2 }
         ],
         includeScore: true,
-        threshold: 0.35,      // 小さいほど厳しい（0.25〜0.45で調整）
+        threshold: 0.35,
         ignoreLocation: true
       });
     }
@@ -566,7 +572,6 @@
         requests: GENRE_KEYWORDS.requests.some(k => text.includes(normalize(k)))
       };
 
-      // 要望 > 遊技台 > 店舗（誤爆しにくい順）
       if (hits.requests) return "requests";
       if (hits.machines) return "machines";
       if (hits.store) return "store";
@@ -603,12 +608,12 @@
         currentGenre === "requests" ? genreDocs.requests :
         genreDocs.all;
 
-      // 1) 完全一致（ジャンル内）
+      // 完全一致（ジャンル内）
       for (const item of list) {
         if (normalize(item.q) === u) return { type: "exact", item };
       }
 
-      // 2) ジャンル内Fuse
+      // ジャンル内Fuse
       const fuseToUse =
         currentGenre === "store" ? fuses.store :
         currentGenre === "machines" ? fuses.machines :
@@ -626,7 +631,7 @@
         }
       }
 
-      // 3) 全体Fuseにフォールバック
+      // 全体へフォールバック
       if (fuses.all && fuseToUse !== fuses.all) {
         const results2 = fuses.all.search(raw).slice(0, 6);
         if (results2.length) {
@@ -641,11 +646,11 @@
       return { type: "none" };
     }
 
-    // ====== ジャンル選択UI ======
+    // ジャンル選択
     async function promptGenreSelection(){
       currentGenre = null;
       setGenreUI();
-      setReady(true); // inputは使えるが送信は不可
+      setReady(true);
 
       const labels = GENRES.map(g => g.label);
       const chips = makeChips(labels, async (_label, idx) => {
@@ -659,14 +664,13 @@
             inputEl.focus();
           }, true));
         }
-
         setReady(true);
       }, true);
 
       await botTypeMessage("まずジャンルを選んでください：", chips);
     }
 
-    // ====== 初期化 ======
+    // 初期化
     async function loadQA() {
       setReady(false);
       const thinking = addThinking();
@@ -704,12 +708,11 @@
       }
     }
 
-    // ====== 送信処理 ======
+    // 送信
     async function onSend() {
       const text = inputEl.value;
       if (!text || !text.trim() || sendBtn.disabled) return;
 
-      // ジャンル未選択なら先に選ばせる
       if (!currentGenre) {
         inputEl.value = "";
         await promptGenreSelection();
@@ -719,9 +722,8 @@
       addMessage("user", text);
       inputEl.value = "";
 
-      // ★考え中の「・・・」を表示
       const thinking = addThinking();
-      await sleep(350); // “考えてる感”の間
+      await sleep(350);
       thinking.remove();
 
       const r = findAnswer(text);
@@ -750,7 +752,7 @@
       );
     }
 
-    // ====== ボタン ======
+    // ボタン
     sendBtn.addEventListener("click", onSend);
     inputEl.addEventListener("keydown", (e) => {
       if (e.key === "Enter") onSend();
