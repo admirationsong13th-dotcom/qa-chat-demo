@@ -260,10 +260,11 @@
       "今週出てない台をランキング形式で出して"
     ];
 
+    // ====== 状態 ======
     let QA = [];
 
-    // ★ここが「Fuseを使う変数」：Fuse検索の道具を入れておく箱
-    let fuse = null;
+    // Fuse検索（全体＋カテゴリ別）
+    let fuses = { all: null, new: null, recommend: null, juggler: null };
 
     const logEl = document.getElementById("log");
     const inputEl = document.getElementById("q");
@@ -272,7 +273,14 @@
     // タイピング中キャンセル用（会話クリア等で中断できる）
     let typingToken = 0;
 
-    // 表記ゆれ吸収（軽め）
+    // ====== キーワード定義（カテゴリ判定用） ======
+    const INTENT_KEYWORDS = {
+      new: ["新台","新機種","導入","入替","最新","デビュー"],
+      recommend: ["おすすめ","オススメ","推し","どれがいい","何がいい","選び方","人気","勝てる","狙い目"],
+      juggler: ["ジャグラー","juggler","アイム","マイ","ゴーゴー","gogo","ファンキー","ハッピー","ミスター","ガールズ"]
+    };
+
+    // ====== 表記ゆれ吸収（必要なら増やしてOK） ======
     function replaceVariants(s){
       return (s ?? "")
         .replace(/オススメ/g, "おすすめ")
@@ -282,7 +290,7 @@
         .replace(/ｼﾞｬｸﾞﾗｰ/g, "ジャグラー");
     }
 
-    // 正規化（ゆらぎ対策）
+    // ====== 正規化 ======
     function normalize(s) {
       return replaceVariants(s)
         .toString()
@@ -294,6 +302,25 @@
         .replace(/[。．.、,！!「」『』（）()［］\[\]【】]/g, "");
     }
 
+    function detectIntent(userText){
+      const t = normalize(userText);
+      // 優先度：ジャグラー > 新台 > オススメ
+      if (INTENT_KEYWORDS.juggler.some(k => t.includes(normalize(k)))) return "juggler";
+      if (INTENT_KEYWORDS.new.some(k => t.includes(normalize(k)))) return "new";
+      if (INTENT_KEYWORDS.recommend.some(k => t.includes(normalize(k)))) return "recommend";
+      return "all";
+    }
+
+    function makeFuse(list){
+      return new Fuse(list ?? [], {
+        keys: ["q"],
+        includeScore: true,
+        threshold: 0.35,      // 小さいほど厳しい（0.25〜0.45で調整）
+        ignoreLocation: true
+      });
+    }
+
+    // ====== UI ======
     function addMessage(role, text) {
       const row = document.createElement("div");
       row.className = "msg " + role;
@@ -347,11 +374,11 @@
       inputEl.placeholder = ready ? "質問を入力（例：営業時間は？）" : "Q&Aを読み込み中…";
     }
 
+    // ====== タイピング ======
     function sleep(ms) {
       return new Promise(r => setTimeout(r, ms));
     }
 
-    // 文字単位タイピング（吹き出しクリックでスキップ）
     async function typeText(bubble, fullText, speedMs = 18, tokenAtStart = 0) {
       let skip = false;
       bubble.addEventListener("click", () => { skip = true; }, { once: true });
@@ -382,15 +409,14 @@
 
       await typeText(bubble, text, 18, token);
 
-      if (typingToken !== token) return; // 中断
-
+      if (typingToken !== token) return;
       if (extraNode) bubble.appendChild(extraNode);
 
       setReady(true);
       inputEl.focus();
     }
 
-    // 検索（完全一致 → Fuseあいまい検索 → 最終フォールバック）
+    // ====== 検索（完全一致 → カテゴリ絞りFuse → 全体Fuse → フォールバック） ======
     function findAnswer(userText) {
       const raw = replaceVariants(userText);
       const u = normalize(raw);
@@ -401,18 +427,38 @@
         if (normalize(item.q) === u) return { type: "exact", item };
       }
 
-      // 2) あいまい検索（Fuse.js）
-      // Fuseが読み込めていればこちらがメイン
-      if (fuse && typeof fuse.search === "function") {
-        const results = fuse.search(raw).slice(0, 6);
+      // 2) カテゴリ絞りFuse
+      const intent = detectIntent(raw);
+      const fuseToUse =
+        (intent === "new" && fuses.new) ? fuses.new :
+        (intent === "recommend" && fuses.recommend) ? fuses.recommend :
+        (intent === "juggler" && fuses.juggler) ? fuses.juggler :
+        fuses.all;
+
+      if (fuseToUse && typeof fuseToUse.search === "function") {
+        const results = fuseToUse.search(raw).slice(0, 6);
         if (results.length) {
-          const best = results[0].item;
-          const suggestions = results.map(r => r.item.q);
-          return { type: "partial", item: best, suggestions };
+          return {
+            type: "partial",
+            item: results[0].item,
+            suggestions: results.map(r => r.item.q)
+          };
         }
       }
 
-      // 3) フォールバック（includesベース）
+      // 3) 全体Fuseへフォールバック（取りこぼし防止）
+      if (fuses.all && fuseToUse !== fuses.all) {
+        const results2 = fuses.all.search(raw).slice(0, 6);
+        if (results2.length) {
+          return {
+            type: "partial",
+            item: results2[0].item,
+            suggestions: results2.map(r => r.item.q)
+          };
+        }
+      }
+
+      // 4) 最終フォールバック（includesベース）
       const scored = QA.map(item => {
         const nq = normalize(item.q);
         let score = 0;
@@ -435,6 +481,7 @@
       return { type: "none" };
     }
 
+    // ====== 初期化 ======
     async function loadQA() {
       setReady(false);
       const dots = addTypingDots();
@@ -450,25 +497,31 @@
           .filter(x => x && typeof x.q === "string" && typeof x.a === "string")
           .map(x => ({ q: x.q.trim(), a: x.a.trim() }));
 
-        // Fuseの検索インデックスを作成（ここが重要）
-        // thresholdは小さいほど厳しい：0.25〜0.45で調整
+        // Fuseインデックス作成（カテゴリ別に絞る）
         if (window.Fuse) {
-          fuse = new Fuse(QA, {
-            keys: ["q"],
-            includeScore: true,
-            threshold: 0.35,
-            ignoreLocation: true
-          });
+          fuses.all = makeFuse(QA);
+
+          // q と a の両方を見て振り分け（qa.jsonをいじらず精度を上げる）
+          const groups = { new: [], recommend: [], juggler: [] };
+
+          for (const item of QA) {
+            const text = normalize(item.q + " " + item.a);
+
+            if (INTENT_KEYWORDS.new.some(k => text.includes(normalize(k)))) groups.new.push(item);
+            if (INTENT_KEYWORDS.recommend.some(k => text.includes(normalize(k)))) groups.recommend.push(item);
+            if (INTENT_KEYWORDS.juggler.some(k => text.includes(normalize(k)))) groups.juggler.push(item);
+          }
+
+          fuses.new = makeFuse(groups.new);
+          fuses.recommend = makeFuse(groups.recommend);
+          fuses.juggler = makeFuse(groups.juggler);
         } else {
-          fuse = null; // CDNが読み込めなかった場合はフォールバックへ
+          fuses = { all:null, new:null, recommend:null, juggler:null };
         }
 
         dots.remove();
 
-        // 指定どおり：件数は表示しない／挨拶は短く
         await botTypeMessage("こんにちは。質問を入力してください");
-
-        // 指定の「よくある質問」を固定表示
         await botTypeMessage("よくある質問：", makeChips(PRESET_QUESTIONS));
 
         setReady(true);
@@ -487,6 +540,7 @@
       }
     }
 
+    // ====== 送信処理 ======
     async function onSend() {
       const text = inputEl.value;
       if (!text || !text.trim() || sendBtn.disabled) return;
@@ -506,8 +560,7 @@
       }
 
       if (r.type === "partial") {
-        const chips = makeChips(r.suggestions);
-        await botTypeMessage(r.item.a + "\n\n（もしかして…）", chips);
+        await botTypeMessage(r.item.a + "\n\n（もしかして…）", makeChips(r.suggestions));
         return;
       }
 
