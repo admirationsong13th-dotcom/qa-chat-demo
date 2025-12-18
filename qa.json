@@ -1,692 +1,254 @@
-<!doctype html>
-<html lang="ja">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>デモ_ベアジョン_Q&Aチャット</title>
-
-  <style>
-    :root{
-      --accent:#00A0D0;
-      --accent2:#0bb6ea;
-
-      --bg:#f7fafc;
-      --card:#ffffff;
-      --text:#0f172a;
-      --muted:#64748b;
-      --line:rgba(15,23,42,.10);
-      --shadow:0 18px 45px rgba(15,23,42,.10);
-      --radius:18px;
-
-      --bot:#f1f5f9;
-      --user:#00A0D0;
-      --userText:#ffffff;
-    }
-
-    *{ box-sizing:border-box; }
-    html,body{ height:100%; }
-    body{
-      margin:0;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, "Noto Sans JP", sans-serif;
-      color:var(--text);
-      background:
-        radial-gradient(900px 600px at 15% -10%, rgba(0,160,208,.14), transparent 55%),
-        radial-gradient(900px 600px at 85% 0%, rgba(0,160,208,.08), transparent 55%),
-        linear-gradient(180deg, #ffffff, var(--bg));
-    }
-
-    .wrap{ max-width: 980px; margin: 0 auto; padding: 18px; }
-    .card{
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: var(--radius);
-      box-shadow: var(--shadow);
-      overflow:hidden;
-    }
-
-    header{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:12px;
-      padding: 14px 16px;
-      border-bottom: 1px solid var(--line);
-      background: linear-gradient(180deg, rgba(0,160,208,.06), rgba(255,255,255,0));
-    }
-
-    .brand{
-      display:flex;
-      align-items:center;
-      gap:12px;
-      min-width:0;
-    }
-
-    .logo{
-      width: 140px;
-      height: auto;
-      display:block;
-      filter: drop-shadow(0 6px 14px rgba(15,23,42,.10));
-    }
-
-    .titleWrap{ display:flex; flex-direction:column; gap:2px; min-width:0; }
-    h1{
-      margin:0;
-      font-size: 14px;
-      font-weight: 900;
-      letter-spacing:.02em;
-      white-space:nowrap;
-      overflow:hidden;
-      text-overflow:ellipsis;
-    }
-    .badge{
-      display:inline-flex;
-      align-items:center;
-      gap:6px;
-      font-size: 12px;
-      color: var(--muted);
-      font-weight: 800;
-    }
-    .pill{
-      display:inline-block;
-      padding: 4px 10px;
-      border-radius: 999px;
-      border: 1px solid rgba(0,160,208,.25);
-      background: rgba(0,160,208,.06);
-      color: var(--text);
-      font-weight: 900;
-      font-size: 12px;
-    }
-
-    .actions{ display:flex; gap:8px; align-items:center; flex:0 0 auto; }
-    .ghost{
-      appearance:none;
-      border: 1px solid var(--line);
-      background: #fff;
-      color: var(--text);
-      border-radius: 12px;
-      padding: 10px 12px;
-      font-weight: 800;
-      cursor:pointer;
-    }
-    .ghost:hover{ background: rgba(15,23,42,.03); }
-
-    #log{
-      height: 66vh;
-      min-height: 390px;
-      padding: 16px;
-      overflow:auto;
-      background: linear-gradient(180deg, rgba(241,245,249,.45), rgba(255,255,255,0));
-    }
-
-    .msg{ display:flex; margin: 10px 0; gap:8px; }
-    .msg.user{ justify-content:flex-end; }
-
-    .bubble{
-      max-width: 78%;
-      padding: 10px 12px;
-      border-radius: 14px;
-      line-height: 1.6;
-      white-space: pre-wrap;
-      word-break: break-word;
-      border: 1px solid transparent;
-      transform: translateY(2px);
-      animation: pop .16s ease-out forwards;
-    }
-    @keyframes pop { to { transform: translateY(0);} }
-
-    .bot .bubble{
-      background: var(--bot);
-      border-color: rgba(15,23,42,.06);
-      border-bottom-left-radius: 6px;
-      color: var(--text);
-    }
-    .user .bubble{
-      background: var(--user);
-      color: var(--userText);
-      border-bottom-right-radius: 6px;
-      box-shadow: 0 10px 22px rgba(0,160,208,.22);
-    }
-
-    .typing{
-      display:inline-flex; gap:6px; align-items:center;
-    }
-    .typing i{
-      width:6px; height:6px; border-radius:999px;
-      background: rgba(15,23,42,.45);
-      animation: blink 1s infinite ease-in-out;
-      display:inline-block;
-    }
-    .typing i:nth-child(2){ animation-delay:.15s; }
-    .typing i:nth-child(3){ animation-delay:.30s; }
-    @keyframes blink{
-      0%, 80%, 100%{ opacity:.25; transform: translateY(0); }
-      40%{ opacity:1; transform: translateY(-2px); }
-    }
-
-    .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
-    .chip{
-      border: 1px solid rgba(0,160,208,.28);
-      background: rgba(0,160,208,.06);
-      color: var(--text);
-      padding: 8px 10px;
-      border-radius: 999px;
-      cursor:pointer;
-      font-size: 12px;
-      line-height: 1.15;
-      font-weight: 900;
-      text-align:left;
-      transition: transform .05s ease-out;
-    }
-    .chip:hover{ background: rgba(0,160,208,.10); }
-    .chip:active{ transform: translateY(1px); }
-
-    .chipPrimary{
-      border-color: rgba(0,160,208,.35);
-      background: linear-gradient(180deg, rgba(11,182,234,.14), rgba(0,160,208,.08));
-    }
-
-    footer{
-      border-top: 1px solid var(--line);
-      padding: 12px;
-      display:flex;
-      gap:10px;
-      align-items:center;
-      background: #fff;
-    }
-
-    .input{
-      flex:1;
-      display:flex;
-      align-items:center;
-      gap:10px;
-      background: rgba(241,245,249,.75);
-      border:1px solid rgba(15,23,42,.10);
-      border-radius: 14px;
-      padding: 10px 12px;
-    }
-
-    input{
-      flex:1;
-      border:0;
-      outline:none;
-      background: transparent;
-      color: var(--text);
-      font-size: 14px;
-      padding: 2px 2px;
-    }
-    input::placeholder{ color: rgba(100,116,139,.85); }
-
-    .send{
-      appearance:none;
-      border: 1px solid rgba(0,160,208,.25);
-      background: linear-gradient(180deg, var(--accent2), var(--accent));
-      color: white;
-      border-radius: 14px;
-      padding: 12px 16px;
-      cursor:pointer;
-      font-weight: 900;
-      letter-spacing:.02em;
-      box-shadow: 0 12px 26px rgba(0,160,208,.22);
-    }
-    .send:hover{ filter: brightness(1.02); }
-    .send:disabled{ opacity:.55; cursor:not-allowed; box-shadow:none; }
-
-    .ghost:focus-visible, .send:focus-visible, input:focus-visible, .chip:focus-visible{
-      outline: 3px solid rgba(0,160,208,.25);
-      outline-offset: 2px;
-      border-radius: 12px;
-    }
-
-    .tiny{
-      font-size: 12px;
-      color: var(--muted);
-      font-weight: 800;
-    }
-
-    @media (max-width: 560px){
-      .logo{ width: 110px; }
-      #log{ height: 64vh; }
-      .bubble{ max-width: 86%; }
-      .actions{ gap:6px; }
-      .ghost{ padding: 10px 10px; }
-    }
-  </style>
-</head>
-
-<body>
-  <div class="wrap">
-    <div class="card">
-      <header>
-        <div class="brand">
-          <img class="logo" src="./logo.png" alt="BEAR JOHN" onerror="this.style.display='none'">
-          <div class="titleWrap">
-            <h1>デモ_ベアジョン_Q&Aチャット</h1>
-            <div class="badge">
-              現在のジャンル：
-              <span class="pill" id="genrePill">未選択</span>
-            </div>
-          </div>
-        </div>
-        <div class="actions">
-          <button class="ghost" id="changeGenre" type="button">ジャンル変更</button>
-          <button class="ghost" id="clear" type="button">会話をクリア</button>
-        </div>
-      </header>
-
-      <div id="log" aria-live="polite"></div>
-
-      <footer>
-        <div class="input">
-          <input id="q" type="text" placeholder="ジャンルを選んでから質問してください" autocomplete="off" />
-        </div>
-        <button class="send" id="send" type="button" disabled>送信</button>
-      </footer>
-    </div>
-  </div>
-
-  <!-- Fuse.js（あいまい検索） -->
-  <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
-
-  <script>
-    const QA_JSON_PATH = "./qa.json";
-
-    // “よくある質問”は「遊技台・オススメ」系の例として固定表示
-    const PRESET_QUESTIONS = [
-      "ジャグラーシリーズについて教えて",
-      "オススメ機種は？",
-      "新台のデータを出して",
-      "今週出てない台をランキング形式で出して"
-    ];
-
-    // ====== ジャンル定義 ======
-    const GENRES = [
-      { id: "store", label: "営業時間や設備などに関するお問い合わせ" },
-      { id: "machines", label: "遊技台やオススメ機種などに関するお問い合わせ" },
-      { id: "requests", label: "店舗への要望など" }
-    ];
-
-    // ジャンル自動分類キーワード（qa.jsonは編集不要）
-    // ※必要に応じて増やしてください（精度が上がります）
-    const GENRE_KEYWORDS = {
-      store: [
-        "営業時間","開店","閉店","何時","営業","住所","場所","行き方","アクセス","最寄","電話","番号",
-        "駐車場","駐輪","トイレ","喫煙","分煙","休憩","設備","Wi-Fi","wifi","充電","ロッカー","景品","交換","レート"
-      ],
-      machines: [
-        "台","機種","おすすめ","オススメ","推し","新台","新機種","導入","入替","最新","データ","ランキング",
-        "ジャグラー","juggler","アイム","マイ","ゴーゴー","gogo","ファンキー","ハッピー","北斗","からくり","モンキー"
-      ],
-      requests: [
-        "要望","改善","お願い","クレーム","苦情","意見","希望","不満","対応","接客","店員","清掃","汚い","暑い","寒い","音","臭い","並び","ルール"
-      ]
-    };
-
-    // ====== 状態 ======
-    let QA = [];
-    let currentGenre = null; // "store" | "machines" | "requests" | null
-
-    // Fuse（全体＋ジャンル別）
-    let fuses = { all: null, store: null, machines: null, requests: null };
-
-    const logEl = document.getElementById("log");
-    const inputEl = document.getElementById("q");
-    const sendBtn = document.getElementById("send");
-    const genrePill = document.getElementById("genrePill");
-
-    // タイピング中キャンセル用（会話クリア等で中断できる）
-    let typingToken = 0;
-
-    // ====== 表記ゆれ吸収（必要なら増やしてOK） ======
-    function replaceVariants(s){
-      return (s ?? "")
-        .replace(/オススメ/g, "おすすめ")
-        .replace(/お薦め/g, "おすすめ")
-        .replace(/ｵｽｽﾒ/g, "おすすめ")
-        .replace(/JUGGLER/ig, "ジャグラー")
-        .replace(/ｼﾞｬｸﾞﾗｰ/g, "ジャグラー");
-    }
-
-    function normalize(s) {
-      return replaceVariants(s)
-        .toString()
-        .trim()
-        .toLowerCase()
-        .replace(/\s+/g, "")
-        .replace(/　+/g, "")
-        .replace(/[?？]+$/g, "")
-        .replace(/[。．.、,！!「」『』（）()［］\[\]【】]/g, "");
-    }
-
-    // ====== UI ======
-    function addMessage(role, text) {
-      const row = document.createElement("div");
-      row.className = "msg " + role;
-
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
-      bubble.textContent = text ?? "";
-
-      row.appendChild(bubble);
-      logEl.appendChild(row);
-
-      logEl.scrollTop = logEl.scrollHeight;
-      return { row, bubble };
-    }
-
-    function addTypingDots() {
-      const row = document.createElement("div");
-      row.className = "msg bot";
-      const bubble = document.createElement("div");
-      bubble.className = "bubble";
-      const t = document.createElement("span");
-      t.className = "typing";
-      t.innerHTML = "<i></i><i></i><i></i>";
-      bubble.appendChild(t);
-      row.appendChild(bubble);
-      logEl.appendChild(row);
-      logEl.scrollTop = logEl.scrollHeight;
-      return row;
-    }
-
-    function makeChips(labels, onClick, primary=false) {
-      const box = document.createElement("div");
-      box.className = "chips";
-      labels.forEach((label, idx) => {
-        const b = document.createElement("button");
-        b.type = "button";
-        b.className = "chip" + (primary ? " chipPrimary" : "");
-        b.textContent = label;
-        b.onclick = () => onClick(label, idx);
-        box.appendChild(b);
-      });
-      return box;
-    }
-
-    function setReady(ready) {
-      // ジャンル未選択なら常に送信不可
-      const ok = ready && !!currentGenre;
-      sendBtn.disabled = !ok;
-      inputEl.disabled = !ready;
-      inputEl.placeholder = currentGenre
-        ? "質問を入力してください"
-        : "まずジャンルを選んでください";
-    }
-
-    // ====== タイピング ======
-    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
-
-    async function typeText(bubble, fullText, speedMs = 18, tokenAtStart = 0) {
-      let skip = false;
-      bubble.addEventListener("click", () => { skip = true; }, { once: true });
-
-      bubble.textContent = "";
-      for (let i = 0; i < fullText.length; i++) {
-        if (typingToken !== tokenAtStart) return;
-        if (skip) { bubble.textContent = fullText; break; }
-        bubble.textContent += fullText[i];
-        logEl.scrollTop = logEl.scrollHeight;
-
-        if (fullText[i] === "\n") {
-          await sleep(Math.max(6, Math.floor(speedMs / 2)));
-        } else {
-          await sleep(speedMs);
-        }
-      }
-    }
-
-    async function botTypeMessage(text, extraNode) {
-      // ready=false（送信不可）にして、タイピング重なりを防ぐ
-      const prevGenre = currentGenre; // 表示更新のため
-      sendBtn.disabled = true;
-      inputEl.disabled = true;
-
-      const token = ++typingToken;
-      const { bubble } = addMessage("bot", "");
-
-      await typeText(bubble, text, 18, token);
-      if (typingToken !== token) return;
-
-      if (extraNode) bubble.appendChild(extraNode);
-
-      inputEl.disabled = false;
-      setReady(true);
-      // 変なタイミングでジャンルが変わっても整合性保つ
-      if (prevGenre !== currentGenre) setGenreUI();
-      inputEl.focus();
-    }
-
-    // ====== Fuseインデックス作成 ======
-    function makeFuse(list){
-      return new Fuse(list ?? [], {
-        keys: ["q"],
-        includeScore: true,
-        threshold: 0.35,      // 0.25〜0.45で調整
-        ignoreLocation: true
-      });
-    }
-
-    function classifyByKeywords(item){
-      const text = normalize(item.q + " " + item.a);
-      const hits = {
-        store: GENRE_KEYWORDS.store.some(k => text.includes(normalize(k))),
-        machines: GENRE_KEYWORDS.machines.some(k => text.includes(normalize(k))),
-        requests: GENRE_KEYWORDS.requests.some(k => text.includes(normalize(k)))
-      };
-
-      // 複数ヒットする場合は優先度で決める（用途に合わせて調整可）
-      // 例：要望っぽい語があるなら requests を優先
-      if (hits.requests) return "requests";
-      if (hits.machines) return "machines";
-      if (hits.store) return "store";
-
-      // どれにも当たらないものは store に寄せる（無難）
-      return "store";
-    }
-
-    function buildFuses(){
-      if (!window.Fuse) {
-        fuses = { all:null, store:null, machines:null, requests:null };
-        return;
-      }
-      fuses.all = makeFuse(QA);
-
-      const groups = { store: [], machines: [], requests: [] };
-      for (const item of QA) {
-        const g = classifyByKeywords(item);
-        groups[g].push(item);
-      }
-
-      fuses.store = makeFuse(groups.store);
-      fuses.machines = makeFuse(groups.machines);
-      fuses.requests = makeFuse(groups.requests);
-    }
-
-    // ====== ジャンル選択 ======
-    function setGenreUI(){
-      if (!currentGenre){
-        genrePill.textContent = "未選択";
-        return;
-      }
-      const g = GENRES.find(x => x.id === currentGenre);
-      genrePill.textContent = g ? g.label : currentGenre;
-    }
-
-    async function promptGenreSelection(){
-      currentGenre = null;
-      setGenreUI();
-      setReady(true); // inputは使えるが送信は不可
-
-      const labels = GENRES.map(g => g.label);
-      const chips = makeChips(labels, async (_label, idx) => {
-        currentGenre = GENRES[idx].id;
-        setGenreUI();
-        // 選択後の案内（デモ用）
-        await botTypeMessage("ジャンルを選びました。質問を入力してください。");
-
-        // “よくある質問”は machinesジャンルのデモ例として表示
-        if (currentGenre === "machines") {
-          await botTypeMessage("よくある質問：", makeChips(PRESET_QUESTIONS, (q) => {
-            inputEl.value = q;
-            inputEl.focus();
-          }, true));
-        }
-
-        setReady(true);
-      }, true);
-
-      await botTypeMessage("まずジャンルを選んでください：", chips);
-    }
-
-    // ====== 検索 ======
-    function findAnswer(userText) {
-      const raw = replaceVariants(userText);
-      const u = normalize(raw);
-      if (!u) return { type: "empty" };
-
-      // 1) 完全一致（ジャンル内）
-      const list =
-        currentGenre === "store" ? (fuses.store? fuses.store._docs : QA) :
-        currentGenre === "machines" ? (fuses.machines? fuses.machines._docs : QA) :
-        currentGenre === "requests" ? (fuses.requests? fuses.requests._docs : QA) :
-        QA;
-
-      for (const item of list) {
-        if (normalize(item.q) === u) return { type: "exact", item };
-      }
-
-      // 2) ジャンル内Fuse
-      const fuseToUse =
-        currentGenre === "store" ? fuses.store :
-        currentGenre === "machines" ? fuses.machines :
-        currentGenre === "requests" ? fuses.requests :
-        fuses.all;
-
-      if (fuseToUse && typeof fuseToUse.search === "function") {
-        const results = fuseToUse.search(raw).slice(0, 6);
-        if (results.length) {
-          return {
-            type: "partial",
-            item: results[0].item,
-            suggestions: results.map(r => r.item.q)
-          };
-        }
-      }
-
-      // 3) 全体Fuseへフォールバック（取りこぼし防止）
-      if (fuses.all && fuseToUse !== fuses.all) {
-        const results2 = fuses.all.search(raw).slice(0, 6);
-        if (results2.length) {
-          return {
-            type: "partial",
-            item: results2[0].item,
-            suggestions: results2.map(r => r.item.q)
-          };
-        }
-      }
-
-      return { type: "none" };
-    }
-
-    // ====== 初期化 ======
-    async function loadQA() {
-      setReady(false);
-      const dots = addTypingDots();
-
-      try {
-        const res = await fetch(QA_JSON_PATH, { cache: "no-store" });
-        if (!res.ok) throw new Error("fetch failed: " + res.status);
-
-        const data = await res.json();
-        if (!Array.isArray(data)) throw new Error("qa.json is not an array");
-
-        QA = data
-          .filter(x => x && typeof x.q === "string" && typeof x.a === "string")
-          .map(x => ({ q: x.q.trim(), a: x.a.trim() }));
-
-        buildFuses();
-        dots.remove();
-
-        await botTypeMessage("こんにちは。質問を入力してください");
-        await promptGenreSelection();
-
-        setReady(true);
-        inputEl.focus();
-
-      } catch (e) {
-        dots.remove();
-        await botTypeMessage(
-          "Q&Aの読み込みに失敗しました。\n" +
-          "・qa.json が同じ階層にあるか\n" +
-          "・JSONの書式（カンマ/括弧）が正しいか\n" +
-          "を確認してください。"
-        );
-        console.error(e);
-        setReady(false);
-      }
-    }
-
-    // ====== 送信処理 ======
-    async function onSend() {
-      const text = inputEl.value;
-      if (!text || !text.trim() || sendBtn.disabled) return;
-
-      // ジャンル未選択なら、質問前に選ばせる
-      if (!currentGenre) {
-        inputEl.value = "";
-        await promptGenreSelection();
-        return;
-      }
-
-      addMessage("user", text);
-      inputEl.value = "";
-
-      const dots = addTypingDots();
-      await sleep(220);
-      dots.remove();
-
-      const r = findAnswer(text);
-
-      if (r.type === "exact") {
-        await botTypeMessage(r.item.a);
-        return;
-      }
-
-      if (r.type === "partial") {
-        await botTypeMessage(r.item.a + "\n\n（もしかして…）",
-          makeChips(r.suggestions, (q) => {
-            inputEl.value = q;
-            inputEl.focus();
-          })
-        );
-        return;
-      }
-
-      await botTypeMessage(
-        "該当するQ&Aが見つかりませんでした。\n" +
-        "・言い方を変える\n" +
-        "・ジャンルを変更する\n" +
-        "のどちらかを試してください。"
-      );
-    }
-
-    // ====== ボタン ======
-    sendBtn.addEventListener("click", onSend);
-    inputEl.addEventListener("keydown", (e) => {
-      if (e.key === "Enter") onSend();
-    });
-
-    document.getElementById("clear").addEventListener("click", async () => {
-      typingToken++; // タイピング中断
-      logEl.innerHTML = "";
-      await botTypeMessage("会話をクリアしました。");
-      await promptGenreSelection();
-    });
-
-    document.getElementById("changeGenre").addEventListener("click", async () => {
-      await promptGenreSelection();
-    });
-
-    loadQA();
-  </script>
-</body>
-</html>
+[
+  {
+    "q": "店までの行き方は？",
+    "a": "最寄りの池袋駅からのルートをご案内します。\n【池袋駅 東口 → マルハン池袋 SLOT BASE（徒歩5〜7分）】\n\n1. 池袋駅の「東口」から地上に出る。\n   - 目の前に大きな横断歩道があり、向かいに「ヤマダ電機 LABI1」が見える。\n\n2. 横断歩道を渡り、「ヤマダ電機 LABI1」側へ進む。\n\n3. 渡ったら右に曲がり、明治通り沿いを直進する。\n   - しばらく（3分ほど）真っすぐ進む。\n\n4. 右手に「TOKYO PLAZA（旧ロサ会館方向）」を見ながらそのまま直進。\n\n5. 更に進むと右手に「D-BOXビル」が見える。\n   - 1Fが「マルハン池袋 SLOT BASE」です。"
+  },
+  {
+    "q": "お店の住所・建物名・フロアは？",
+    "a": "東京都豊島区東池袋1-43-6 D-BOXビル1Fです。"
+  },
+  {
+    "q": "電話番号は？",
+    "a": "03-3971-6605です。\n   - 尚、営業時間外はお電話がつながらない場合がございます。\n　　 ご不便をおかけいたしますが、ご理解のほどよろしくお願いいたします。"
+  },
+  {
+    "q": "営業時間は？定休日は？",
+    "a": "10:00～23:00\n   年中無休となっております。"
+  },
+  {
+    "q": "入場方法を教えてください",
+    "a": "📢 『777コンパス抽選』となります\n\n1. 入場抽選のご案内\n   ※マルハン池袋店本館は店頭抽選になります。\n\n2. 当店の入場抽選アプリのインストールはこちらから（QRコード）\n\n3. 手順① 前日24:00まで\n   - 前日24時までにアプリを起動して当日の入場整理券に申し込む。\n   - 抽選参加券は、上限に達し次第、受付終了となります。\n   - 申込完了後のキャンセルはできません。\n   - 当日はご本人様のスマホ（アプリ）のみ有効です。\n\n4. 手順② 当日9:30〜9:40\n   - 入場番号を確認して本人認証を済ませる。\n   - ※時間内に本人認証が完了しなかった場合、抽選対象外となります。\n   - ※スマホの故障等の場合はご相談ください。\n\n5. 手順③ 9:50再整列\n   - 9時50分までに右の画像を準備して番号順に整列。\n\n6. 手順④ 10:00 開店入場\n   - 入場時はアプリの入場順番画面を確認いたします。\n   - ※ご本人様のスマホ（アプリ）以外での入場はできません。\n\n7. 注意事項\n   - 当日アプリのサーバーダウンなどの全体がつながらない場合に関しましては、\n     店頭抽選に切り替えさせていただきます。\n     （締切時間は9:50ですが前後する場合がございます）"
+  },
+  {
+    "q": "抽選の実施場所と再整列の流れは？",
+    "a": "店舗前で抽選→9:55に再整列→10:00入場となります。"
+  },
+  {
+    "q": "抽選参加の人数上限や入場上限は？",
+    "a": "上限はありません。抽選番号順に入場できます。"
+  },
+  {
+    "q": "抽選に間に合わなかった場合は？",
+    "a": "一般入場となり、抽選終了後に先着順で入場できます。"
+  },
+  {
+    "q": "貸出レートは？",
+    "a": "スロット 1,000円46枚貸出です"
+  },
+  {
+    "q": "景品交換の場所と受付時間は？",
+    "a": "店内カウンターにて22:45まで受付しています。"
+  },
+  {
+    "q": "余りメダルの扱いは？",
+    "a": "端数はお菓子などの景品と交換できます。"
+  },
+  {
+    "q": "会員カードはありますか？入会条件は？",
+    "a": "店頭カウンターで年齢確認書類があれば即日発行できます。"
+  },
+  {
+    "q": "貯メダル・再プレイの上限は？手数料は？",
+    "a": "会員は無制限利用可能、手数料はありません。"
+  },
+  {
+    "q": "台移動や持ち玉移動は可能？",
+    "a": "可能です。同一フロアでのみ行えます。"
+  },
+  {
+    "q": "再プレイは何枚まで可能？",
+    "a": "スロットは最大500枚まで再プレイが可能です。"
+  },
+  {
+    "q": "台確保のルールは？",
+    "a": "長時間の台確保は禁止。離席時は貴重品をお持ちください。"
+  },
+  {
+    "q": "喫煙ブースはありますか？",
+    "a": "店内に加熱式喫煙スペースがあります。"
+  },
+  {
+    "q": "休憩スペースはありますか？",
+    "a": "店内休憩コーナーを自由に利用できます。"
+  },
+  {
+    "q": "ロッカーはありますか？",
+    "a": "店舗出入口横に無料ロッカーがあります。"
+  },
+  {
+    "q": "トイレは清潔ですか？",
+    "a": "定期清掃を実施しています。"
+  },
+  {
+    "q": "周辺に飲食店はありますか？",
+    "a": "周囲に多数あります。"
+  },
+  {
+    "q": "駐車場・駐輪場はありますか？",
+    "a": "専用駐車場はありませんが、近隣にコインパーキングがあります。"
+  },
+  {
+    "q": "スマホ充電できますか？",
+    "a": "各台にUSB充電ポートがあります。"
+  },
+  {
+    "q": "公衆Wi-Fiはありますか？",
+    "a": "あります。"
+  },
+  {
+    "q": "トイレの場所はどこ？",
+    "a": "店内中央奥です。"
+  },
+  {
+    "q": "来店ポイントはありますか？",
+    "a": "ありません。"
+  },
+  {
+    "q": "景品カウンターの場所は？",
+    "a": "入り口横です。"
+  },
+  {
+    "q": "交換所の場所は？",
+    "a": "店舗裏側、外の小窓です。"
+  },
+  {
+    "q": "マルハン公式の店舗ページは？",
+    "a": "マルハン公式サイト内に店舗ページがあります。"
+  },
+  {
+    "q": "アゲ台を狙いたいので、3日連続黒の台を選んでください",
+    "a": "先日から3日連続黒字の台は45台です。上位3台は240番台・9番台・25番台です。"
+  },
+  {
+    "q": "据え置きを狙いたいので、3日連続赤の台を選んでください",
+    "a": "先日から3日連続赤字の台は24台です。上位3台は109番台・68番台・46番台です。"
+  },
+  {
+    "q": "去年の11月11日の全6機種はどれですか？",
+    "a": "パチスロからくりサーカスが全12台中8台出玉率100％を越えています。"
+  },
+  {
+    "q": "前回の特定日、なにが一番ハマってましたか？",
+    "a": "10月7日、一番黒字だった台は118番台です。"
+  },
+  {
+    "q": "先月の特定日の翌日、据置だった台はなんですか？",
+    "a": "先月の特定日翌日、前日と同等程度の出玉率だった台は90番台/5番台/15番台です。"
+  },
+  {
+    "q": "来店取材とかイベント以外でおすすめの日は？",
+    "a": "10月3日は平日でしたがスマスロ北斗の拳の機種平均出玉率は105％でした。"
+  },
+  {
+    "q": "駐車場でヤカラに絡まれました",
+    "a": "すぐに状況を確認し対応いたします。"
+  },
+  {
+    "q": "隣の客が軍団ぽい動きをしています",
+    "a": "役職者がモニター確認および現場確認を実施します。"
+  },
+  {
+    "q": "ワイファイのパスワードを教えて下さい",
+    "a": "maruhan777となります。"
+  },
+  {
+    "q": "ジャグラーの音量を統一してほしいです",
+    "a": "順次対応します。完了時は当店Xアカウントにて報告します。"
+  },
+  {
+    "q": "エアコンの効きが悪いです",
+    "a": "状態を確認し調整いたします。"
+  },
+  {
+    "q": "トレイの匂いが気になります",
+    "a": "清掃と消臭対応を行います。"
+  },
+  {
+    "q": "今日なにを打ったらいいですか",
+    "a": "今日の店舗オススメ機種はパチスロがパチスロからくりサーカスです。\n   - これは11月17日から実施されています。\n   - オススメ機種のパチスロからくりサーカスにおいては\n   - 11月18日が全台④⑤⑥のような傾向でした\n   - 差玉1万枚217番台が11月17日に突破しています"
+  },
+  {
+    "q": "最近どうなの？",
+    "a": "以下が直近の営業状況です\n\n   - 来店取材\n   - 11月11日🔥全国大戦🔥来店取材\n\n   - マルハン池袋/SLOTBASEにはインフルエンサー「めっこ」さんが来店されてます\n   - めっこさん：Xフォロワー20,000人\n   - めっこ🩷でちゃう！@mekopachi\n   - 🩷でちゃう！関東編集部員\n   - 同日には、ビッグディッパー新橋1号店、レッドロック学芸大駅前店と合同取材でした\n   - そのときの全台456傾向機種はスマスロ新鬼武者だと思われます\n   - 末尾①番台の平均差枚690枚/出率103.3％でした\n   - ゾロ目台の平均差枚1,057枚/出率104.9％でした\n\n   - 🎰新台入替🎰\n   - 11月4日が新台入替でした\n\n   - 導入台はLパチスロ革命機ヴァルブレイヴ2が26台\n   - スマスロとある科学の超電磁砲2が3台\n   - L絶対行激～PLATNIC HEART～が1台\n   - 導入されたLパチスロ革命機ヴァルブレイヴ2の平均出玉率は105％となっていました\n   - また、店舗全体でも平均差玉＋13枚、勝率34.6％（104/31）\n   - この日の一番出ていた機種はL東京喰種（20台）で平均差枚＋3,550枚\n   - 平均G数5,399G、勝率75％（15/20）\n   - 上記の状況から全台高設定の配分だったと考えられます\n\n   - 7⃣の付く日\n   - 11月7日のデータを以下に表記します\n\n   - 平均差枚＋109枚/ 平均G数4,457G / 勝率35.9（108/301）\n   - この日一番出ていた台は235番台のL革命機ヴァルブレイヴ2\n   - 差枚は14,000枚でした\n   - また、一番ユーザーが粘っていた台はL東京リベンジャーズ（15台）で\n   - 平均G数は6,893G、平均差枚＋267枚、勝率46.7％（7/15）\n   - 上記の状況から、ユーザーにとってかなり状況がよかったのはないかと\n   - 推測されます\n\n   - 他にもスマスロ炎炎の消防隊（3台）においては、\n   - 平均差枚3,430枚 / 平均G数6,996G / 勝率100％（3/3）\n   - こちらも全台高設定と思しきデータと推測されます\n\n   - 1台設置のバラエティ機種においては、\n   - L真・一騎当千において差枚7,000枚というデータがありました"
+  },
+  {
+    "q": "据え置き狙いはアツいの？",
+    "a": "11月7日と11月8日の一部機種データを比較します\n\n   - 11月7日Lモンキーターン平均差枚783枚/出率104.8％\n   - 11月8日Lモンキーターン平均差枚334枚/出率102.1％\n\n   - 11月7日スマスロ東京リベンジャーズ平均差枚267枚/出率101.3％\n   - 11月8日スマスロ東京リベンジャーズ平均差枚1,173枚/出率105.2％\n\n   上記の結果から十分に狙う価値があると考えられます。\n\n   11月7日の差玉上位5台はそれぞれ下記です\n   - 235番台L革命機ヴァルブレイブ2 / 差枚：14,000枚 / G数：6,787G\n   - 251番台Lかぐや様は告らせたい / 差枚：13,200枚 / G数：7,252G\n   - 153番台L東京喰種 / 差枚：13,100枚 / G数：4,001G\n   - 225番台LモンキーターンV / 差枚：12,800枚 / G数：3,711G\n   -  12番台スマスロ北斗の拳 / 差枚：12,800枚 / G数：4,448G\n\n   上記の台の11月8日の差玉は下記となります\n\n   - 235番台L革命機ヴァルブレイブ2 / 差枚：-5,100枚 / G数：7,248G\n   - 251番台Lかぐや様は告らせたい / 差枚：-1,600枚 / G数：2,325G\n   - 153番台L東京喰種 / 差枚：-4,900枚 / G数：6,079G\n   - 225番台LモンキーターンV / 差枚：-1,500枚 / G数：2,802G\n   -  12番台スマスロ北斗の拳 / 差枚：-100枚 / G数：4,333G"
+  },
+  {
+    "q": "マイナスが続いている台を狙うのはアツい？",
+    "a": "11月4日から11月15日までの12日間で設置台数が一番多いLモンキーターンのデータを参照します\n\n   - Lモンキーターン（29台）\n   - 5日以上連続でユーザー側がマイナスになった台 … 6台\n   - 7日以上連続でマイナス … 3台\n   - 最長連続マイナス日数 … 10日間\n   - 該当台：218番台\n   - 期間：11月6日〜11月15日まで10日連続マイナス\n　 - 1月6日〜15日の平均差枚：-927枚／日\n   - 期間のトータル差枚：-9,270枚\n\n   - 次点連続マイナス日数 … 8日間\n   - 該当台：207番台\n   - 期間：11月4日〜11月11日まで8日連続マイナス\n　 - その後の2日間は小幅のプラス（11月12日＆13日）\n\n   - 次々点連続マイナス日数 … 7日間\n   - 該当台：188番台\n   - 期間：11月5日〜11月11日まで7日連続マイナス\n　 - 11月12日に2,000枚クラスのプラス\n\n\n　尚、該当機種29台、12日間のデータは下記の通りです\n\n   - 期間平均差枚：297枚\n   - 平均勝率：60.6％"
+  },
+  {
+    "q": "何がアツいの？",
+    "a": "毎月⑦の付く日が特にアツいと考えられます\n\n   - 差枚でユーザー側がプラスになることが多く、機種毎の仕掛けも\n   - 全台系、ニブイチ、ローテーションや末尾\n   - 店長Xアカウントのツイート内容にヒントが！？\n   - 11月6日のツイート内容はこちら\n\n   - フクロウの呼吸🦉＠マルハン池袋店長\n   - @maruikenokokyu\n\n\n🦉\n\n今宵はブクロ恒例のリアルフクロウ📸\n那須ハイランドパークより\nりんどう湖どうぶつふれあいFarmの\nリアルフクロウです🐾\n\nそしてカメラ目線のフクロウは\nユーラシアワシミミズク様📸\n羽毛はふわふわで防音効果があり\nほぼ無音で飛行できます✈️\n羽を広げると約2mと大型のフクロウ🪶\n大きいフクロウもお可愛いです💘\n\nrindouko is real hukurou to hureai⛲️\n\n\n   - 11月7日の結果\n   - アズレン（3台）➡️平均+3,786\n   - Xでの📮飛行できます➡️　アズレン\n\n   - 全体での結果はコチラ\n   - 🦉総差+27,800\n   - 🦉平均+87\n   - 🦉10,000枚オーバー9台\n   - 🦉5,000枚オーバー20台"
+  },
+  {
+    "q": "新台のデータを出して",
+    "a": "11月7日新台入替の台データです\n\n● 初日（1日目）\n101番台：＋4,800枚\n102番台：▲1,200枚\n103番台：＋3,200枚\n104番台：▲900枚\n105番台：＋5,100枚\n→ 5台中3台がプラス差枚でした。\n\n● 2日目\n101番台：＋3,900枚\n102番台：▲2,700枚\n103番台：＋4,400枚\n104番台：＋6,000枚\n105番台：＋1,300枚\n→ 5台中4台がプラス差枚でした。\n\n● 3日目\n101番台：＋3,500枚\n102番台：＋4,900枚\n103番台：＋6,800枚\n104番台：＋3,900枚\n105番台：＋5,200枚\n→ 5台すべてプラス差枚となりました。\n\n\n■ いざ番長（増台）\n\n増台台数：4台（台番：201〜204）\n\n● 初日\n201番台：▲2,300枚\n202番台：＋4,100枚\n203番台：＋1,200枚\n204番台：＋3,600枚\n→ 4台中3台がプラス差枚でした。\n\n● 2日目\n201番台：▲1,800枚\n202番台：▲2,500枚\n203番台：▲900枚\n204番台：＋3,200枚\n\n● 3日目\n201番台：＋3,400枚\n202番台：▲1,100枚\n203番台：▲2,700枚\n204番台：▲4,500枚\n→ 3日間を通して増台効果は弱く、差枚のマイナスが続いています。\n\n■ 初代ヴァルヴレイヴ（関連機種）\n\n設置台数：4台（台番：301〜304）\n\n● 初日\n301番台：▲3,200枚\n302番台：＋4,500枚\n303番台：＋2,900枚\n304番台：＋800枚\n→ 4台中3台がプラス差枚でした。\n\n● 2日目\n301番台：＋1,700枚\n302番台：＋3,800枚\n303番台：▲2,400枚\n304番台：＋900枚\n→ 4台中3台がプラス差枚となっております。\n\n● 3日目\n301番台：＋3,600枚\n302番台：＋5,100枚\n303番台：＋2,200枚\n304番台：＋1,300枚\n→ 3日目は全台プラス差枚となりました。"
+  },
+  {
+    "q": "不正客や迷惑客、不良客、軍団について",
+    "a": "通報ありがとうございます！\nいただいた内容は、当店にとって大変重要な情報でございます。\n安全で安心してご遊技いただける環境を守るためにも、\nお客様からのご指摘は本当に心強く、心より感謝申し上げます。\n\nまず、当店では 不正行為・迷惑行為・不良行為・軍団行動 に対して、\n明確なルールに基づき慎重に対応しております。\nお客様にご不快な思いをおかけした可能性があること、\n店舗を代表し深くお詫び申し上げます。\nいただいた通報は、すぐに担当部署および責任者へ共有し、\n状況確認と対応判断を進めてまいりますのでご安心ください。\n\nなお、当店の方針として、スタッフ一人ひとりが独断で相手に直接声をかけたり、\n現場で感情的な対応を行うことはございません。\nすべての判断は責任者が行い、証拠確認・映像チェック・巡回強化など、\n適切なフローに基づいて対応いたします。\nそのため、お客様からいただいた情報は、\n冷静な状況判断のための大切な材料となり、\nまさに“店舗の目の届かない部分を補っていただける力”となっております。\n\nまた、軍団行動や特定グループによる店舗の独占行為が疑われる場合も、\n同様に慎重な裏付けと継続的な観察が必要となります。\nこれらは一度で断定ができるものではなく、\n複数回にわたる確認や、入店経路・台移動の履歴・行動パターンなどの\n総合判断が求められるため、店舗としても即時対応が難しいケースがございます。\nそれでも、お客様からの通報があることで、\n私たちのチェック項目が強化され、見逃しや判断遅れを防ぐことにつながりますので、\n今回のご報告は非常に大きな意味を持っています。\n\nもし、今後も気になる行動や、周囲の雰囲気に違和感を覚えることがございましたら、\nどうぞご遠慮なくお知らせください。\nお客様を危険にさらすような対応をお願いすることは一切ございません。\nチャットボットへの通報だけで十分でございますし、\n個別にお客様へ確認を求めることもいたしませんのでご安心ください。\n\n最後になりますが、当店は「安心して遊べるホール」を最優先に運営しております。\nお客様からのこうしたお声が、店舗改善の大きな原動力となり、\n巡回体制の強化、警備との連携強化、不正対策のアップデートなど、\n日々の安全性向上へと確実につながっております。\n今回の通報も、必ず今後の運営に反映し、\n少しでも快適にご遊技いただける空間づくりに努めてまいります。\n\n改めまして、貴重なご報告をありがとうございました。\nどうぞ今後とも安心してご遊技いただけるよう、\nスタッフ一同、誠心誠意取り組んでまいります。\n何かお気づきの点がありましたら、いつでもお知らせくださいませ。"
+  },
+  {
+    "q": "3日間プラスの台を出して",
+    "a": "下記が3日間プラスの台です\n\n台番号 / 機種名 / 3日間トータル差枚\n123番台 / スマスロモンキーターンV / 3,412枚\n118番台 / パチスロ かぐや様は告らせたい / 2,185枚\n207番台 / スマスロ 北斗の拳 / 5,044枚\n156番台 / パチスロ からくりサーカス / 3,903枚\n189番台 / スマスロ 新鬼武者3 / 1,982枚\n141番台 / スマスロ マギアレコード 魔法少女まどか☆マギカ外伝 / 4,225枚\n172番台 / スロット ソードアート・オンライン / 2,691枚\n230番台 / L パチスロ 革命機ヴァルヴレイヴ2 / 4,818枚\n244番台 / スマスロ 東京リベンジャーズ / 3,106枚\n267番台 / スロット ゾンビランドサガ / 1,754枚"
+  },
+  {
+    "q": "3日間出ていない台を出して",
+    "a": "下記が3日間出ていない台です\n\n台番号 / 機種名 / 3日間トータル差枚\n123番台 / スマスロモンキーターンV / -2,314枚\n118番台 / パチスロ かぐや様は告らせたい / -1,287枚\n207番台 / スマスロ 北斗の拳 / -4,552枚\n156番台 / パチスロ からくりサーカス / -3,119枚\n189番台 / スマスロ 新鬼武者3 / -1,906枚\n141番台 / スマスロ マギアレコード 魔法少女まどか☆マギカ外伝 / -5,044枚\n172番台 / スロット ソードアート・オンライン / -2,688枚\n230番台 / L パチスロ 革命機ヴァルヴレイヴ2 / -3,775枚\n244番台 / スマスロ 東京リベンジャーズ / -1,532枚\n267番台 / スロット ゾンビランドサガ / -2,447枚"
+  },
+  {
+    "q": "今週出てない台をランキング形式で出して",
+    "a": "下記が出ていない台のランキングです\n\n【ワースト1位】\n159番台 / スマスロ 北斗の拳 / -8,732枚\n\n【ワースト2位】\n141番台 / スマスロ マギアレコード 魔法少女まどか☆マギカ外伝 / -7,915枚\n\n【ワースト3位】\n230番台 / L パチスロ 革命機ヴァルヴレイヴ2 / -6,884枚\n\n【ワースト4位】\n156番台 / パチスロ からくりサーカス / -6,102枚\n\n【ワースト5位】\n172番台 / スロット ソードアート・オンライン / -5,776枚"
+  },
+  {
+    "q": "今週出てる台をランキング形式で出して",
+    "a": "下記が出ている台のランキングです\n\n【ベスト1位】\n207番台 / スマスロ 北斗の拳 / 19,000枚\n\n【ベスト2位】\n244番台 / スマスロ 東京リベンジャーズ / 17,482枚\n\n【ベスト3位】\n118番台 / パチスロ かぐや様は告らせたい / 14,906枚\n\n【ベスト4位】\n189番台 / スマスロ 新鬼武者3 / 13,228枚\n\n【ベスト5位】\n123番台 / スマスロモンキーターンV / 12,441枚"
+  },
+  {
+    "q": "コンプリートした台を教えて",
+    "a": "11月7日から1ヶ月間でコンプリートした台は下記です\n\n11月7日 / L 東京喰種 / 18,998枚\n11月7日 / スマスロ 北斗の拳 / 18,904枚\n11月3日 / L 東京喰種 / 18,912枚\n10月28日 / L 東京喰種 / 18,941枚\n10月27日 / パチスロ からくりサーカス / 18,932枚\n10月24日 / L 東京喰種 / 18,905枚\n10月20日 / L 東京喰種 / 18,993枚\n10月20日 / L 東京喰種 / 18,977枚\n10月17日 / スロット ソードアート・オンライン / 18,901枚\n10月15日 / L 東京喰種 / 18,928枚\n10月15日 / スマスロ 新鬼武者3 / 18,987枚\n10月10日 / L 東京喰種 / 18,903枚\n10月7日 / L 東京喰種 / 18,991枚\n10月7日 / L 東京喰種 / 19,000枚"
+  },
+  {
+    "q": "この店リセットしてるの",
+    "a": "当店では全てのお客様に対して、できる限り公平な遊技環境を\n提供すると共に、遊技機本来の魅力をお客様にお伝えできるように\nスタッフ一同で尽力しております"
+  },
+  {
+    "q": "10月の特定日に出ていた台は何",
+    "a": "▼ 10月7日：差枚ランキング TOP10\n【1位】 スマスロ 北斗の拳 / 9,842枚\n【2位】 スロット ソードアート・オンライン / 9,310枚\n【3位】 スマスロ 北斗の拳 / 8,955枚\n【4位】 スマスロ 新鬼武者3 / 8,421枚\n【5位】 スマスロ 北斗の拳 / 7,903枚\n【6位】 パチスロ からくりサーカス / 7,612枚\n【7位】 スマスロ 北斗の拳 / 6,944枚\n【8位】 スマスロ 北斗の拳 / 6,518枚\n【9位】 スマスロ モンキーターンV / 6,303枚\n【10位】 スマスロ マギアレコード 魔法少女まどか☆マギカ外伝 / 5,977枚\n\n▼ 10月17日：差枚ランキング TOP10\n【1位】 スマスロ 北斗の拳 / 10,112枚\n【2位】 L パチスロ 革命機ヴァルヴレイヴ2 / 9,201枚\n【3位】 スマスロ 北斗の拳 / 8,940枚\n【4位】 スマスロ 東京リベンジャーズ / 8,310枚\n【5位】 スマスロ 北斗の拳 / 7,884枚\n【6位】 パチスロ かぐや様は告らせたい / 7,503枚\n【7位】 スマスロ 北斗の拳 / 6,992枚\n【8位】 スロット ゾンビランドサガ / 6,804枚\n【9位】 スマスロ 北斗の拳 / 6,501枚\n【10位】 パチスロ からくりサーカス / 5,933枚\n\n▼ 10月27日：差枚ランキング TOP10\n【1位】 スマスロ 北斗の拳 / 10,022枚\n【2位】 スマスロ 北斗の拳 / 9,540枚\n【3位】 パチスロ からくりサーカス / 9,118枚\n【4位】 スマスロ 北斗の拳 / 8,601枚\n【5位】 スマスロ 新鬼武者3 / 8,355枚\n【6位】 スマスロ 北斗の拳 / 7,904枚\n【7位】 スマスロ モンキーターンV / 7,288枚\n【8位】 スロット ソードアート・オンライン / 6,914枚\n【9位】 スマスロ マギアレコード 魔法少女まどか☆マギカ外伝 / 6,422枚\n【10位】 スマスロ 北斗の拳 / 6,301枚"
+  },
+  {
+    "q": "オススメ機種は？",
+    "a": "特に 12 月はメリハリのある営業が続いており、以下の期間で強い結果が確認できています。\n* 12月1日〜12月7日：吉宗\n\n* 12月8日〜12月14日：東京喰種\n\n* 12月15日〜12月20日：東京リベンジャーズ\n\nその中でも、以下の “特定日” が非常に強い結果となりました。\n________________\n\n\n■ 12月6日：吉宗 ― 全台放出台\nこの日は 吉宗が全台放出 となり、\n5台すべてが大幅プラス差枚を記録しました。\n● 吉宗（台番：101〜105）\n101番台：＋4,300枚\n102番台：＋5,800枚\n103番台：＋3,900枚\n104番台：＋6,200枚\n105番台：＋5,100枚\n→ 全5台がしっかりとプラス。シリーズ全体の仕上がりが非常に良い1日でした。\n________________\n\n\n■ 12月16日：東京喰種 ― 10台中9台放出＆万枚突破あり\n期間中でも特に強かったのが 12 月 16 日。\n10台中9台が放出台 と非常に高い勝率で、\nその中から 1台が万枚突破 を記録しました。\n● 東京喰種（台番：201〜210）\n201番台：＋3,800枚\n202番台：＋7,200枚\n203番台：＋2,900枚\n204番台：＋10,300枚（★万枚突破）\n205番台：＋5,600枚\n206番台：▲300枚（唯一のマイナス台）\n207番台：＋4,900枚\n208番台：＋6,500枚\n209番台：＋3,400枚\n210番台：＋5,800枚\n→ 勝率9/10、出玉感も抜群。特に204番台は万枚オーバーの強烈な結果となりました。\n________________\n\n\n■ 12月15日：東京リベンジャーズ ― 万枚突破が3台\nおすすめ期間初日から非常に強い動きが見られ、\n10台中3台が万枚突破となったのが12月15日です。\n● 東京リベンジャーズ（台番：301〜310）\n301番台：＋12,100枚（★万枚突破）\n302番台：＋9,700枚\n303番台：＋3,400枚\n304番台：＋11,300枚（★万枚突破）\n305番台：＋5,900枚\n306番台：▲500枚\n307番台：＋10,600枚（★万枚突破）\n308番台：＋2,700枚\n309番台：＋4,100枚\n310番台：▲300枚\n→ 万枚が3台同時発生し、シリーズ全体の勢いを象徴する結果となりました。\n________________\n\n\n■ まとめ\n   * 12月は週ごとに明確な推し機種のメリハリがあり、特に特定日は強烈な結果が多い月\n\n   * 12/6 吉宗 → 全台放出\n\n   * 12/16 東京喰種 → 勝率9/10 & 万枚突破あり\n\n   * 12/15 東京リベンジャーズ → 10台中3台が万枚突破"
+  },
+  {
+    "q": "おすすめ機種について教えて",
+    "a": "特に 12 月はメリハリのある営業が続いており、以下の期間で強い結果が確認できています。\n* 12月1日〜12月7日：吉宗\n\n* 12月8日〜12月14日：東京喰種\n\n* 12月15日〜12月20日：東京リベンジャーズ\n\nその中でも、以下の “特定日” が非常に強い結果となりました。\n________________\n\n\n■ 12月6日：吉宗 ― 全台放出台\nこの日は 吉宗が全台放出 となり、\n5台すべてが大幅プラス差枚を記録しました。\n● 吉宗（台番：101〜105）\n101番台：＋4,300枚\n102番台：＋5,800枚\n103番台：＋3,900枚\n104番台：＋6,200枚\n105番台：＋5,100枚\n→ 全5台がしっかりとプラス。シリーズ全体の仕上がりが非常に良い1日でした。\n________________\n\n\n■ 12月16日：東京喰種 ― 10台中9台放出＆万枚突破あり\n期間中でも特に強かったのが 12 月 16 日。\n10台中9台が放出台 と非常に高い勝率で、\nその中から 1台が万枚突破 を記録しました。\n● 東京喰種（台番：201〜210）\n201番台：＋3,800枚\n202番台：＋7,200枚\n203番台：＋2,900枚\n204番台：＋10,300枚（★万枚突破）\n205番台：＋5,600枚\n206番台：▲300枚（唯一のマイナス台）\n207番台：＋4,900枚\n208番台：＋6,500枚\n209番台：＋3,400枚\n210番台：＋5,800枚\n→ 勝率9/10、出玉感も抜群。特に204番台は万枚オーバーの強烈な結果となりました。\n________________\n\n\n■ 12月15日：東京リベンジャーズ ― 万枚突破が3台\nおすすめ期間初日から非常に強い動きが見られ、\n10台中3台が万枚突破となったのが12月15日です。\n● 東京リベンジャーズ（台番：301〜310）\n301番台：＋12,100枚（★万枚突破）\n302番台：＋9,700枚\n303番台：＋3,400枚\n304番台：＋11,300枚（★万枚突破）\n305番台：＋5,900枚\n306番台：▲500枚\n307番台：＋10,600枚（★万枚突破）\n308番台：＋2,700枚\n309番台：＋4,100枚\n310番台：▲300枚\n→ 万枚が3台同時発生し、シリーズ全体の勢いを象徴する結果となりました。\n________________\n\n\n■ まとめ\n   * 12月は週ごとに明確な推し機種のメリハリがあり、特に特定日は強烈な結果が多い月\n\n   * 12/6 吉宗 → 全台放出\n\n   * 12/16 東京喰種 → 勝率9/10 & 万枚突破あり\n\n   * 12/15 東京リベンジャーズ → 10台中3台が万枚突破"
+  },
+  {
+    "q": "おすすめとかあるの？",
+    "a": "特に 12 月はメリハリのある営業が続いており、以下の期間で強い結果が確認できています。\n* 12月1日〜12月7日：吉宗\n\n* 12月8日〜12月14日：東京喰種\n\n* 12月15日〜12月20日：東京リベンジャーズ\n\nその中でも、以下の “特定日” が非常に強い結果となりました。\n________________\n\n\n■ 12月6日：吉宗 ― 全台放出台\nこの日は 吉宗が全台放出 となり、\n5台すべてが大幅プラス差枚を記録しました。\n● 吉宗（台番：101〜105）\n101番台：＋4,300枚\n102番台：＋5,800枚\n103番台：＋3,900枚\n104番台：＋6,200枚\n105番台：＋5,100枚\n→ 全5台がしっかりとプラス。シリーズ全体の仕上がりが非常に良い1日でした。\n________________\n\n\n■ 12月16日：東京喰種 ― 10台中9台放出＆万枚突破あり\n期間中でも特に強かったのが 12 月 16 日。\n10台中9台が放出台 と非常に高い勝率で、\nその中から 1台が万枚突破 を記録しました。\n● 東京喰種（台番：201〜210）\n201番台：＋3,800枚\n202番台：＋7,200枚\n203番台：＋2,900枚\n204番台：＋10,300枚（★万枚突破）\n205番台：＋5,600枚\n206番台：▲300枚（唯一のマイナス台）\n207番台：＋4,900枚\n208番台：＋6,500枚\n209番台：＋3,400枚\n210番台：＋5,800枚\n→ 勝率9/10、出玉感も抜群。特に204番台は万枚オーバーの強烈な結果となりました。\n________________\n\n\n■ 12月15日：東京リベンジャーズ ― 万枚突破が3台\nおすすめ期間初日から非常に強い動きが見られ、\n10台中3台が万枚突破となったのが12月15日です。\n● 東京リベンジャーズ（台番：301〜310）\n301番台：＋12,100枚（★万枚突破）\n302番台：＋9,700枚\n303番台：＋3,400枚\n304番台：＋11,300枚（★万枚突破）\n305番台：＋5,900枚\n306番台：▲500枚\n307番台：＋10,600枚（★万枚突破）\n308番台：＋2,700枚\n309番台：＋4,100枚\n310番台：▲300枚\n→ 万枚が3台同時発生し、シリーズ全体の勢いを象徴する結果となりました。\n________________\n\n\n■ まとめ\n   * 12月は週ごとに明確な推し機種のメリハリがあり、特に特定日は強烈な結果が多い月\n\n   * 12/6 吉宗 → 全台放出\n\n   * 12/16 東京喰種 → 勝率9/10 & 万枚突破あり\n\n   * 12/15 東京リベンジャーズ → 10台中3台が万枚突破"
+  },
+  {
+    "q": "ジャグラーシリーズについて教えて",
+    "a": "ジャグラーシリーズは、\n「5」のつく日（1月5日・15日・25日）で特に強い傾向が出ております。\n直近では マイジャグラー・アイムジャグラーともに大きな差玉が複数確認されており、シリーズ全体で稼働も非常に好調です。\n以下に、各「5の日」の差枚データをまとめました。\n________________\n\n\n■ 1月5日（5のつく日）\n● マイジャグラー（台番：101〜110）\n101番台：＋3,200枚\n102番台：＋1,800枚\n103番台：▲400枚\n104番台：＋2,900枚\n105番台：＋4,300枚\n106番台：＋1,100枚\n107番台：＋3,600枚\n108番台：▲700枚\n109番台：＋2,500枚\n110番台：＋3,900枚\n→ 10台中8台がプラス差枚でした。\n________________\n\n\n■ 1月15日（5のつく日）\n● マイジャグラー（台番：101〜110）\n101番台：＋2,700枚\n102番台：＋3,800枚\n103番台：＋1,900枚\n104番台：▲500枚\n105番台：＋4,600枚\n106番台：＋2,300枚\n107番台：＋3,200枚\n108番台：＋900枚\n109番台：＋1,700枚\n110番台：＋4,100枚\n→ 高勝率で、序盤から別積みが目立つ状況でした。\n________________\n\n\n● アイムジャグラー（台番：201〜210）\n201番台：＋1,600枚\n202番台：＋2,400枚\n203番台：▲300枚\n204番台：＋1,900枚\n205番台：＋3,100枚\n206番台：＋800枚\n207番台：＋2,900枚\n208番台：＋1,200枚\n209番台：▲500枚\n210番台：＋2,700枚\n→ 10台中8台がプラス差枚で安定した出玉感がありました。\n________________\n\n\n■ 1月25日（5のつく日）\n● マイジャグラー（台番：101〜110）\n101番台：＋4,500枚\n102番台：＋3,300枚\n103番台：＋2,800枚\n104番台：＋1,600枚\n105番台：＋5,200枚\n106番台：＋2,700枚\n107番台：＋3,900枚\n108番台：＋1,200枚\n109番台：＋4,100枚\n110番台：＋2,500枚\n→ 全体的に強めで、平均差枚も非常に高い結果となりました。\n________________\n\n\n● アイムジャグラー（台番：201〜210）\n201番台：＋900枚\n202番台：＋2,200枚\n203番台：＋1,500枚\n204番台：▲200枚\n205番台：＋2,900枚\n206番台：＋1,800枚\n207番台：＋2,400枚\n208番台：＋500枚\n209番台：＋2,300枚\n210番台：＋1,900枚\n→ アイムでもしっかり出玉感があり、シリーズ全体での“5の日”の強さが継続しています。\n\n\n\n\nまた、ジャグラーシリーズは “翌日の据え置き傾向が強い” 点も特徴的です。\n 5のつく日に大きく差玉が出た台の 約3分の2が、翌日も引き続きプラス差枚を記録しています。\n以下は、各「5の日」の翌日データです。\n________________\n\n\n■ 1月6日（1月5日の翌日）\n● マイジャグラー（台番：101〜110）\n101番台：＋1,900枚\n102番台：▲300枚\n103番台：▲200枚\n104番台：＋1,300枚\n105番台：＋2,600枚\n106番台：＋900枚\n107番台：＋1,800枚\n108番台：▲100枚\n109番台：＋1,500枚\n110番台：＋2,200枚\n→ 10台中7台がプラス差枚。前日の好調台の据え置きが目立つ営業でした。\n________________\n\n\n■ 1月16日（1月15日の翌日）\n● マイジャグラー（台番：101〜110）\n101番台：＋1,400枚\n102番台：＋1,900枚\n103番台：＋700枚\n104番台：▲300枚\n105番台：＋2,800枚\n106番台：＋1,100枚\n107番台：＋1,600枚\n108番台：＋500枚\n109番台：▲200枚\n110番台：＋1,900枚\n→ 10台中7台がプラス。強い台の据え置き感が継続しています。\n________________\n\n\n● アイムジャグラー（台番：201〜210）\n201番台：＋700枚\n202番台：＋1,300枚\n203番台：▲100枚\n204番台：＋800枚\n205番台：＋1,900枚\n206番台：＋400枚\n207番台：＋1,500枚\n208番台：▲200枚\n209番台：＋900枚\n210番台：＋1,400枚\n→ 10台中7台がプラス。アイムでも据え置き傾向が明確に見られました。\n________________\n\n\n■ 1月26日（1月25日の翌日）\n● マイジャグラー（台番：101〜110）\n101番台：＋2,000枚\n102番台：＋2,300枚\n103番台：＋900枚\n104番台：＋700枚\n105番台：＋3,500枚\n106番台：＋1,400枚\n107番台：＋2,100枚\n108番台：▲300枚\n109番台：＋2,000枚\n110番台：＋1,100枚\n→ 10台中8台がプラス。前日の強さをそのまま感じさせる結果でした。\n________________\n\n\n● アイムジャグラー（台番：201〜210）\n201番台：＋600枚\n202番台：＋1,200枚\n203番台：＋400枚\n204番台：▲100枚\n205番台：＋1,700枚\n206番台：＋900枚\n207番台：＋1,300枚\n208番台：＋300枚\n209番台：＋1,000枚\n210番台：＋800枚\n→ 10台中8台がプラス。アイム全体で据え置き傾向が強く出ています。"
+  },
+  {
+    "q": "ジャグラーってどんな感じ？",
+    "a": "ジャグラーシリーズは、\n「5」のつく日（1月5日・15日・25日）で特に強い傾向が出ております。\n直近では マイジャグラー・アイムジャグラーともに大きな差玉が複数確認されており、シリーズ全体で稼働も非常に好調です。\n以下に、各「5の日」の差枚データをまとめました。\n________________\n\n\n■ 1月5日（5のつく日）\n● マイジャグラー（台番：101〜110）\n101番台：＋3,200枚\n102番台：＋1,800枚\n103番台：▲400枚\n104番台：＋2,900枚\n105番台：＋4,300枚\n106番台：＋1,100枚\n107番台：＋3,600枚\n108番台：▲700枚\n109番台：＋2,500枚\n110番台：＋3,900枚\n→ 10台中8台がプラス差枚でした。\n________________\n\n\n■ 1月15日（5のつく日）\n● マイジャグラー（台番：101〜110）\n101番台：＋2,700枚\n102番台：＋3,800枚\n103番台：＋1,900枚\n104番台：▲500枚\n105番台：＋4,600枚\n106番台：＋2,300枚\n107番台：＋3,200枚\n108番台：＋900枚\n109番台：＋1,700枚\n110番台：＋4,100枚\n→ 高勝率で、序盤から別積みが目立つ状況でした。\n________________\n\n\n● アイムジャグラー（台番：201〜210）\n201番台：＋1,600枚\n202番台：＋2,400枚\n203番台：▲300枚\n204番台：＋1,900枚\n205番台：＋3,100枚\n206番台：＋800枚\n207番台：＋2,900枚\n208番台：＋1,200枚\n209番台：▲500枚\n210番台：＋2,700枚\n→ 10台中8台がプラス差枚で安定した出玉感がありました。\n________________\n\n\n■ 1月25日（5のつく日）\n● マイジャグラー（台番：101〜110）\n101番台：＋4,500枚\n102番台：＋3,300枚\n103番台：＋2,800枚\n104番台：＋1,600枚\n105番台：＋5,200枚\n106番台：＋2,700枚\n107番台：＋3,900枚\n108番台：＋1,200枚\n109番台：＋4,100枚\n110番台：＋2,500枚\n→ 全体的に強めで、平均差枚も非常に高い結果となりました。\n________________\n\n\n● アイムジャグラー（台番：201〜210）\n201番台：＋900枚\n202番台：＋2,200枚\n203番台：＋1,500枚\n204番台：▲200枚\n205番台：＋2,900枚\n206番台：＋1,800枚\n207番台：＋2,400枚\n208番台：＋500枚\n209番台：＋2,300枚\n210番台：＋1,900枚\n→ アイムでもしっかり出玉感があり、シリーズ全体での“5の日”の強さが継続しています。\n\n\n\n\nまた、ジャグラーシリーズは “翌日の据え置き傾向が強い” 点も特徴的です。\n 5のつく日に大きく差玉が出た台の 約3分の2が、翌日も引き続きプラス差枚を記録しています。\n以下は、各「5の日」の翌日データです。\n________________\n\n\n■ 1月6日（1月5日の翌日）\n● マイジャグラー（台番：101〜110）\n101番台：＋1,900枚\n102番台：▲300枚\n103番台：▲200枚\n104番台：＋1,300枚\n105番台：＋2,600枚\n106番台：＋900枚\n107番台：＋1,800枚\n108番台：▲100枚\n109番台：＋1,500枚\n110番台：＋2,200枚\n→ 10台中7台がプラス差枚。前日の好調台の据え置きが目立つ営業でした。\n________________\n\n\n■ 1月16日（1月15日の翌日）\n● マイジャグラー（台番：101〜110）\n101番台：＋1,400枚\n102番台：＋1,900枚\n103番台：＋700枚\n104番台：▲300枚\n105番台：＋2,800枚\n106番台：＋1,100枚\n107番台：＋1,600枚\n108番台：＋500枚\n109番台：▲200枚\n110番台：＋1,900枚\n→ 10台中7台がプラス。強い台の据え置き感が継続しています。\n________________\n\n\n● アイムジャグラー（台番：201〜210）\n201番台：＋700枚\n202番台：＋1,300枚\n203番台：▲100枚\n204番台：＋800枚\n205番台：＋1,900枚\n206番台：＋400枚\n207番台：＋1,500枚\n208番台：▲200枚\n209番台：＋900枚\n210番台：＋1,400枚\n→ 10台中7台がプラス。アイムでも据え置き傾向が明確に見られました。\n________________\n\n\n■ 1月26日（1月25日の翌日）\n● マイジャグラー（台番：101〜110）\n101番台：＋2,000枚\n102番台：＋2,300枚\n103番台：＋900枚\n104番台：＋700枚\n105番台：＋3,500枚\n106番台：＋1,400枚\n107番台：＋2,100枚\n108番台：▲300枚\n109番台：＋2,000枚\n110番台：＋1,100枚\n→ 10台中8台がプラス。前日の強さをそのまま感じさせる結果でした。\n________________\n\n\n● アイムジャグラー（台番：201〜210）\n201番台：＋600枚\n202番台：＋1,200枚\n203番台：＋400枚\n204番台：▲100枚\n205番台：＋1,700枚\n206番台：＋900枚\n207番台：＋1,300枚\n208番台：＋300枚\n209番台：＋1,000枚\n210番台：＋800枚\n→ 10台中8台がプラス。アイム全体で据え置き傾向が強く出ています。"
+  },
+  {
+    "q": "設定上げ狙いしたいんだけど、どの台が狙えそう？",
+    "a": "* 直近の営業状況を見ると、3日〜7日連続で凹んでいる台が複数あります。設定が上がる（リセット）かどうかはこのチャットボットでは示唆できませんが、参考までに御覧ください。\n* 以下は、特に “長期でマイナスが続いている狙い目台” の一覧です。\n________________\n* * ■ 設定上げ狙い候補（連続で凹み中の台）\n* ● 101番台（マイジャグラー） ― 7日連続でマイナス\n* 1日目：▲800枚\n2日目：▲1,600枚\n3日目：▲900枚\n4日目：▲1,200枚\n5日目：▲2,300枚\n6日目：▲700枚\n7日目：▲1,500枚\n* → 合計 ▲9,000枚超の凹み。最も上げが期待できる状況。\n________________\n   *    * ● 203番台（アイムジャグラー） ― 6日連続でマイナス\n   * 1日目：▲500枚\n2日目：▲1,200枚\n3日目：▲1,000枚\n4日目：▲1,400枚\n5日目：▲600枚\n6日目：▲900枚\n   * → アイムでこれだけ続くのは珍しく 周期的な上げ期待が高い台。\n________________\n      *       * ● 305番台（東京リベンジャーズ） ― 5日連続でマイナス\n      * 1日目：▲2,300枚\n2日目：▲1,700枚\n3日目：▲1,900枚\n4日目：▲800枚\n5日目：▲1,300枚\n      * → AT機での長期凹みは 一気に跳ね返る傾向あり。\n________________\n         *          * ● 402番台（バジリスク絆） ― 4日連続でマイナス\n         * 1日目：▲1,800枚\n2日目：▲2,100枚\n3日目：▲1,400枚\n4日目：▲900枚\n         * → 絆は投入した日が分かりやすく、上げ狙いの優先候補に最適。\n________________\n            *             * ● 512番台（沖ドキ！GOLD） ― 3日連続でマイナス\n            * 1日目：▲2,600枚\n2日目：▲3,100枚\n3日目：▲1,200枚\n            * → 叩きどころが明確な機種。上げ＋初当たり軽くなる可能性大。\n            *"
+  },
+  {
+    "q": "ずっと黒字の台ある？ずっと調子の悪い台ある？ずっとへこんでいる台ある？",
+    "a": "* 直近の営業状況を見ると、3日〜7日連続で凹んでいる台が複数あります。設定が上がる（リセット）かどうかはこのチャットボットでは示唆できませんが、参考までに御覧ください。\n* 以下は、特に “長期でマイナスが続いている狙い目台” の一覧です。\n________________\n* * ■ 設定上げ狙い候補（連続で凹み中の台）\n* ● 101番台（マイジャグラー） ― 7日連続でマイナス\n* 1日目：▲800枚\n2日目：▲1,600枚\n3日目：▲900枚\n4日目：▲1,200枚\n5日目：▲2,300枚\n6日目：▲700枚\n7日目：▲1,500枚\n* → 合計 ▲9,000枚超の凹み。最も上げが期待できる状況。\n________________\n   *    * ● 203番台（アイムジャグラー） ― 6日連続でマイナス\n   * 1日目：▲500枚\n2日目：▲1,200枚\n3日目：▲1,000枚\n4日目：▲1,400枚\n5日目：▲600枚\n6日目：▲900枚\n   * → アイムでこれだけ続くのは珍しく 周期的な上げ期待が高い台。\n________________\n      *       * ● 305番台（東京リベンジャーズ） ― 5日連続でマイナス\n      * 1日目：▲2,300枚\n2日目：▲1,700枚\n3日目：▲1,900枚\n4日目：▲800枚\n5日目：▲1,300枚\n      * → AT機での長期凹みは 一気に跳ね返る傾向あり。\n________________\n         *          * ● 402番台（バジリスク絆） ― 4日連続でマイナス\n         * 1日目：▲1,800枚\n2日目：▲2,100枚\n3日目：▲1,400枚\n4日目：▲900枚\n         * → 絆は投入した日が分かりやすく、上げ狙いの優先候補に最適。\n________________\n            *             * ● 512番台（沖ドキ！GOLD） ― 3日連続でマイナス\n            * 1日目：▲2,600枚\n2日目：▲3,100枚\n3日目：▲1,200枚\n            * → 叩きどころが明確な機種。上げ＋初当たり軽くなる可能性大。\n            *"
+  },
+  {
+    "q": "一発逆転の台が知りたい",
+    "a": "* 直近の営業状況を見ると、3日〜7日連続で凹んでいる台が複数あります。設定が上がる（リセット）かどうかはこのチャットボットでは示唆できませんが、参考までに御覧ください。\n* 以下は、特に “長期でマイナスが続いている狙い目台” の一覧です。\n________________\n* * ■ 設定上げ狙い候補（連続で凹み中の台）\n* ● 101番台（マイジャグラー） ― 7日連続でマイナス\n* 1日目：▲800枚\n2日目：▲1,600枚\n3日目：▲900枚\n4日目：▲1,200枚\n5日目：▲2,300枚\n6日目：▲700枚\n7日目：▲1,500枚\n* → 合計 ▲9,000枚超の凹み。最も上げが期待できる状況。\n________________\n   *    * ● 203番台（アイムジャグラー） ― 6日連続でマイナス\n   * 1日目：▲500枚\n2日目：▲1,200枚\n3日目：▲1,000枚\n4日目：▲1,400枚\n5日目：▲600枚\n6日目：▲900枚\n   * → アイムでこれだけ続くのは珍しく 周期的な上げ期待が高い台。\n________________\n      *       * ● 305番台（東京リベンジャーズ） ― 5日連続でマイナス\n      * 1日目：▲2,300枚\n2日目：▲1,700枚\n3日目：▲1,900枚\n4日目：▲800枚\n5日目：▲1,300枚\n      * → AT機での長期凹みは 一気に跳ね返る傾向あり。\n________________\n         *          * ● 402番台（バジリスク絆） ― 4日連続でマイナス\n         * 1日目：▲1,800枚\n2日目：▲2,100枚\n3日目：▲1,400枚\n4日目：▲900枚\n         * → 絆は投入した日が分かりやすく、上げ狙いの優先候補に最適。\n________________\n            *             * ● 512番台（沖ドキ！GOLD） ― 3日連続でマイナス\n            * 1日目：▲2,600枚\n2日目：▲3,100枚\n3日目：▲1,200枚\n            * → 叩きどころが明確な機種。上げ＋初当たり軽くなる可能性大。\n            *"
+  }
+]
