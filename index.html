@@ -97,7 +97,7 @@
       font-size: 12px;
     }
 
-    .actions{ display:flex; gap:8px; align-items:center; flex:0 0 auto; }
+    .actions{ display:flex; gap:8px; align-items:center; }
     .ghost{
       appearance:none;
       border: 1px solid var(--line);
@@ -118,9 +118,35 @@
       background: linear-gradient(180deg, rgba(241,245,249,.45), rgba(255,255,255,0));
     }
 
-    .msg{ display:flex; margin: 10px 0; gap:8px; }
+    /* ===== chat row ===== */
+    .msg{ display:flex; margin: 12px 0; gap:10px; align-items:flex-end; }
     .msg.user{ justify-content:flex-end; }
 
+    .avatar{
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      font-weight: 900;
+      font-size: 12px;
+      flex: 0 0 auto;
+      user-select:none;
+      border: 1px solid rgba(15,23,42,.08);
+      box-shadow: 0 10px 22px rgba(15,23,42,.06);
+    }
+    .avatar.bot{
+      background: rgba(0,160,208,.10);
+      color: rgba(15,23,42,.85);
+    }
+    .avatar.user{
+      background: rgba(0,160,208,.95);
+      color: #fff;
+      border-color: rgba(0,160,208,.35);
+    }
+
+    /* ===== speech bubble ===== */
     .bubble{
       max-width: 78%;
       padding: 10px 12px;
@@ -131,6 +157,7 @@
       border: 1px solid transparent;
       transform: translateY(2px);
       animation: pop .16s ease-out forwards;
+      position: relative;
     }
     @keyframes pop { to { transform: translateY(0);} }
 
@@ -143,24 +170,51 @@
     .user .bubble{
       background: var(--user);
       color: var(--userText);
+      border-color: rgba(0,160,208,.35);
       border-bottom-right-radius: 6px;
       box-shadow: 0 10px 22px rgba(0,160,208,.22);
     }
 
-    .typing{
-      display:inline-flex; gap:6px; align-items:center;
+    /* bubble tails */
+    .bot .bubble::after{
+      content:"";
+      position:absolute;
+      left:-7px;
+      bottom:10px;
+      width:0;height:0;
+      border-top:8px solid transparent;
+      border-bottom:8px solid transparent;
+      border-right:8px solid var(--bot);
+      filter: drop-shadow(0 1px 0 rgba(15,23,42,.06));
     }
-    .typing i{
-      width:6px; height:6px; border-radius:999px;
-      background: rgba(15,23,42,.45);
-      animation: blink 1s infinite ease-in-out;
+    .user .bubble::after{
+      content:"";
+      position:absolute;
+      right:-7px;
+      bottom:10px;
+      width:0;height:0;
+      border-top:8px solid transparent;
+      border-bottom:8px solid transparent;
+      border-left:8px solid var(--user);
+      filter: drop-shadow(0 1px 0 rgba(0,160,208,.12));
+    }
+
+    /* ===== thinking "・・・" loader ===== */
+    .thinking{
       display:inline-block;
+      font-weight: 900;
+      letter-spacing: .12em;
     }
-    .typing i:nth-child(2){ animation-delay:.15s; }
-    .typing i:nth-child(3){ animation-delay:.30s; }
-    @keyframes blink{
-      0%, 80%, 100%{ opacity:.25; transform: translateY(0); }
-      40%{ opacity:1; transform: translateY(-2px); }
+    .thinking::after{
+      content:"・・・";
+      display:inline-block;
+      animation: ellipsis 1.1s infinite steps(1);
+    }
+    @keyframes ellipsis{
+      0%{ content:"・"; }
+      33%{ content:"・・"; }
+      66%{ content:"・・・"; }
+      100%{ content:"・"; }
     }
 
     .chips{ display:flex; flex-wrap:wrap; gap:8px; margin-top:10px; }
@@ -237,18 +291,13 @@
       border-radius: 12px;
     }
 
-    .tiny{
-      font-size: 12px;
-      color: var(--muted);
-      font-weight: 800;
-    }
-
     @media (max-width: 560px){
       .logo{ width: 110px; }
       #log{ height: 64vh; }
       .bubble{ max-width: 86%; }
       .actions{ gap:6px; }
       .ghost{ padding: 10px 10px; }
+      .avatar{ width: 32px; height: 32px; }
     }
   </style>
 </head>
@@ -277,7 +326,7 @@
 
       <footer>
         <div class="input">
-          <input id="q" type="text" placeholder="ジャンルを選んでから質問してください" autocomplete="off" />
+          <input id="q" type="text" placeholder="まずジャンルを選んでください" autocomplete="off" />
         </div>
         <button class="send" id="send" type="button" disabled>送信</button>
       </footer>
@@ -290,7 +339,7 @@
   <script>
     const QA_JSON_PATH = "./qa.json";
 
-    // “よくある質問”は「遊技台・オススメ」系の例として固定表示
+    // “よくある質問”例（machinesジャンルのデモ用）
     const PRESET_QUESTIONS = [
       "ジャグラーシリーズについて教えて",
       "オススメ機種は？",
@@ -306,24 +355,29 @@
     ];
 
     // ジャンル自動分類キーワード（qa.jsonは編集不要）
-    // ※必要に応じて増やしてください（精度が上がります）
     const GENRE_KEYWORDS = {
       store: [
         "営業時間","開店","閉店","何時","営業","住所","場所","行き方","アクセス","最寄","電話","番号",
-        "駐車場","駐輪","トイレ","喫煙","分煙","休憩","設備","Wi-Fi","wifi","充電","ロッカー","景品","交換","レート"
+        "駐車場","駐輪","トイレ","喫煙","分煙","休憩","設備","wi-fi","wifi","充電","ロッカー","景品","交換","レート"
       ],
       machines: [
-        "台","機種","おすすめ","オススメ","推し","新台","新機種","導入","入替","最新","データ","ランキング",
-        "ジャグラー","juggler","アイム","マイ","ゴーゴー","gogo","ファンキー","ハッピー","北斗","からくり","モンキー"
+        "台","機種","おすすめ","オススメ","推し","どれがいい","何がいい",
+        "新台","新機種","導入","入替","最新","データ","ランキング",
+        // ジャグラー強化
+        "ジャグラー","ジャグ","juggler","jug","アイム","マイ","マイジャグ","ゴーゴー","gogo","ファンキー","ハッピー","ミスター","ガールズ"
       ],
       requests: [
-        "要望","改善","お願い","クレーム","苦情","意見","希望","不満","対応","接客","店員","清掃","汚い","暑い","寒い","音","臭い","並び","ルール"
+        "要望","改善","お願い","クレーム","苦情","意見","希望","不満","対応","接客","店員",
+        "清掃","汚い","暑い","寒い","音","臭い","並び","ルール"
       ]
     };
 
     // ====== 状態 ======
     let QA = [];
     let currentGenre = null; // "store" | "machines" | "requests" | null
+
+    // ジャンルごとの候補リスト（安全に保持）
+    let genreDocs = { all: [], store: [], machines: [], requests: [] };
 
     // Fuse（全体＋ジャンル別）
     let fuses = { all: null, store: null, machines: null, requests: null };
@@ -333,17 +387,22 @@
     const sendBtn = document.getElementById("send");
     const genrePill = document.getElementById("genrePill");
 
-    // タイピング中キャンセル用（会話クリア等で中断できる）
+    // タイピング中キャンセル用
     let typingToken = 0;
 
-    // ====== 表記ゆれ吸収（必要なら増やしてOK） ======
+    // ====== 表記ゆれ吸収（ジャグラー強化） ======
     function replaceVariants(s){
       return (s ?? "")
         .replace(/オススメ/g, "おすすめ")
         .replace(/お薦め/g, "おすすめ")
         .replace(/ｵｽｽﾒ/g, "おすすめ")
         .replace(/JUGGLER/ig, "ジャグラー")
-        .replace(/ｼﾞｬｸﾞﾗｰ/g, "ジャグラー");
+        .replace(/\bjug\b/ig, "ジャグラー")
+        .replace(/ｼﾞｬｸﾞﾗｰ/g, "ジャグラー")
+        // 略称を寄せる
+        .replace(/マイジャグ/ig, "ジャグラー")
+        .replace(/アイム/ig, "ジャグラー")
+        .replace(/ジャグ/ig, "ジャグラー");
     }
 
     function normalize(s) {
@@ -358,31 +417,60 @@
     }
 
     // ====== UI ======
-    function addMessage(role, text) {
+    function addMessage(role, text, withAvatar=true) {
       const row = document.createElement("div");
       row.className = "msg " + role;
+
+      if (withAvatar) {
+        const av = document.createElement("div");
+        av.className = "avatar " + role;
+        av.textContent = role === "bot" ? "B" : "You";
+        if (role === "user") row.appendChild(document.createElement("div")); // 左の余白合わせ用ダミー
+        row.appendChild(av);
+      }
 
       const bubble = document.createElement("div");
       bubble.className = "bubble";
       bubble.textContent = text ?? "";
 
-      row.appendChild(bubble);
-      logEl.appendChild(row);
+      if (role === "user") {
+        // userは右寄せ： avatar（右） + bubble（右）
+        row.innerHTML = "";
+        const bubbleWrap = document.createElement("div");
+        bubbleWrap.appendChild(bubble);
+        row.appendChild(bubbleWrap);
 
+        const av = document.createElement("div");
+        av.className = "avatar user";
+        av.textContent = "You";
+        row.appendChild(av);
+      } else {
+        // bot： avatar + bubble
+        row.appendChild(bubble);
+      }
+
+      logEl.appendChild(row);
       logEl.scrollTop = logEl.scrollHeight;
       return { row, bubble };
     }
 
-    function addTypingDots() {
+    function addThinking() {
       const row = document.createElement("div");
       row.className = "msg bot";
+
+      const av = document.createElement("div");
+      av.className = "avatar bot";
+      av.textContent = "B";
+
       const bubble = document.createElement("div");
       bubble.className = "bubble";
-      const t = document.createElement("span");
-      t.className = "typing";
-      t.innerHTML = "<i></i><i></i><i></i>";
-      bubble.appendChild(t);
+      const span = document.createElement("span");
+      span.className = "thinking";
+      bubble.appendChild(span);
+
+      row.appendChild(av);
       row.appendChild(bubble);
+
       logEl.appendChild(row);
       logEl.scrollTop = logEl.scrollHeight;
       return row;
@@ -402,14 +490,17 @@
       return box;
     }
 
+    function setGenreUI(){
+      if (!currentGenre) { genrePill.textContent = "未選択"; return; }
+      const g = GENRES.find(x => x.id === currentGenre);
+      genrePill.textContent = g ? g.label : currentGenre;
+    }
+
     function setReady(ready) {
-      // ジャンル未選択なら常に送信不可
       const ok = ready && !!currentGenre;
       sendBtn.disabled = !ok;
       inputEl.disabled = !ready;
-      inputEl.placeholder = currentGenre
-        ? "質問を入力してください"
-        : "まずジャンルを選んでください";
+      inputEl.placeholder = currentGenre ? "質問を入力してください" : "まずジャンルを選んでください";
     }
 
     // ====== タイピング ======
@@ -435,8 +526,7 @@
     }
 
     async function botTypeMessage(text, extraNode) {
-      // ready=false（送信不可）にして、タイピング重なりを防ぐ
-      const prevGenre = currentGenre; // 表示更新のため
+      // 入力停止（重なり防止）
       sendBtn.disabled = true;
       inputEl.disabled = true;
 
@@ -450,106 +540,70 @@
 
       inputEl.disabled = false;
       setReady(true);
-      // 変なタイミングでジャンルが変わっても整合性保つ
-      if (prevGenre !== currentGenre) setGenreUI();
       inputEl.focus();
     }
 
-    // ====== Fuseインデックス作成 ======
+    // ====== Fuse ======
     function makeFuse(list){
       return new Fuse(list ?? [], {
-        keys: ["q"],
+        // ★ q と a の両方を検索（精度UP）
+        keys: [
+          { name: "q", weight: 0.8 },
+          { name: "a", weight: 0.2 }
+        ],
         includeScore: true,
-        threshold: 0.35,      // 0.25〜0.45で調整
+        threshold: 0.35,      // 小さいほど厳しい（0.25〜0.45で調整）
         ignoreLocation: true
       });
     }
 
     function classifyByKeywords(item){
       const text = normalize(item.q + " " + item.a);
+
       const hits = {
         store: GENRE_KEYWORDS.store.some(k => text.includes(normalize(k))),
         machines: GENRE_KEYWORDS.machines.some(k => text.includes(normalize(k))),
         requests: GENRE_KEYWORDS.requests.some(k => text.includes(normalize(k)))
       };
 
-      // 複数ヒットする場合は優先度で決める（用途に合わせて調整可）
-      // 例：要望っぽい語があるなら requests を優先
+      // 要望 > 遊技台 > 店舗（誤爆しにくい順）
       if (hits.requests) return "requests";
       if (hits.machines) return "machines";
       if (hits.store) return "store";
-
-      // どれにも当たらないものは store に寄せる（無難）
       return "store";
     }
 
-    function buildFuses(){
+    function buildIndexes(){
+      genreDocs = { all: QA.slice(), store: [], machines: [], requests: [] };
+
+      for (const item of QA) {
+        const g = classifyByKeywords(item);
+        genreDocs[g].push(item);
+      }
+
       if (!window.Fuse) {
         fuses = { all:null, store:null, machines:null, requests:null };
         return;
       }
-      fuses.all = makeFuse(QA);
 
-      const groups = { store: [], machines: [], requests: [] };
-      for (const item of QA) {
-        const g = classifyByKeywords(item);
-        groups[g].push(item);
-      }
-
-      fuses.store = makeFuse(groups.store);
-      fuses.machines = makeFuse(groups.machines);
-      fuses.requests = makeFuse(groups.requests);
+      fuses.all = makeFuse(genreDocs.all);
+      fuses.store = makeFuse(genreDocs.store);
+      fuses.machines = makeFuse(genreDocs.machines);
+      fuses.requests = makeFuse(genreDocs.requests);
     }
 
-    // ====== ジャンル選択 ======
-    function setGenreUI(){
-      if (!currentGenre){
-        genrePill.textContent = "未選択";
-        return;
-      }
-      const g = GENRES.find(x => x.id === currentGenre);
-      genrePill.textContent = g ? g.label : currentGenre;
-    }
-
-    async function promptGenreSelection(){
-      currentGenre = null;
-      setGenreUI();
-      setReady(true); // inputは使えるが送信は不可
-
-      const labels = GENRES.map(g => g.label);
-      const chips = makeChips(labels, async (_label, idx) => {
-        currentGenre = GENRES[idx].id;
-        setGenreUI();
-        // 選択後の案内（デモ用）
-        await botTypeMessage("ジャンルを選びました。質問を入力してください。");
-
-        // “よくある質問”は machinesジャンルのデモ例として表示
-        if (currentGenre === "machines") {
-          await botTypeMessage("よくある質問：", makeChips(PRESET_QUESTIONS, (q) => {
-            inputEl.value = q;
-            inputEl.focus();
-          }, true));
-        }
-
-        setReady(true);
-      }, true);
-
-      await botTypeMessage("まずジャンルを選んでください：", chips);
-    }
-
-    // ====== 検索 ======
     function findAnswer(userText) {
       const raw = replaceVariants(userText);
       const u = normalize(raw);
       if (!u) return { type: "empty" };
 
-      // 1) 完全一致（ジャンル内）
       const list =
-        currentGenre === "store" ? (fuses.store? fuses.store._docs : QA) :
-        currentGenre === "machines" ? (fuses.machines? fuses.machines._docs : QA) :
-        currentGenre === "requests" ? (fuses.requests? fuses.requests._docs : QA) :
-        QA;
+        currentGenre === "store" ? genreDocs.store :
+        currentGenre === "machines" ? genreDocs.machines :
+        currentGenre === "requests" ? genreDocs.requests :
+        genreDocs.all;
 
+      // 1) 完全一致（ジャンル内）
       for (const item of list) {
         if (normalize(item.q) === u) return { type: "exact", item };
       }
@@ -572,7 +626,7 @@
         }
       }
 
-      // 3) 全体Fuseへフォールバック（取りこぼし防止）
+      // 3) 全体Fuseにフォールバック
       if (fuses.all && fuseToUse !== fuses.all) {
         const results2 = fuses.all.search(raw).slice(0, 6);
         if (results2.length) {
@@ -587,10 +641,35 @@
       return { type: "none" };
     }
 
+    // ====== ジャンル選択UI ======
+    async function promptGenreSelection(){
+      currentGenre = null;
+      setGenreUI();
+      setReady(true); // inputは使えるが送信は不可
+
+      const labels = GENRES.map(g => g.label);
+      const chips = makeChips(labels, async (_label, idx) => {
+        currentGenre = GENRES[idx].id;
+        setGenreUI();
+        await botTypeMessage("ジャンルを選びました。質問を入力してください。");
+
+        if (currentGenre === "machines") {
+          await botTypeMessage("よくある質問：", makeChips(PRESET_QUESTIONS, (q) => {
+            inputEl.value = q;
+            inputEl.focus();
+          }, true));
+        }
+
+        setReady(true);
+      }, true);
+
+      await botTypeMessage("まずジャンルを選んでください：", chips);
+    }
+
     // ====== 初期化 ======
     async function loadQA() {
       setReady(false);
-      const dots = addTypingDots();
+      const thinking = addThinking();
 
       try {
         const res = await fetch(QA_JSON_PATH, { cache: "no-store" });
@@ -603,8 +682,8 @@
           .filter(x => x && typeof x.q === "string" && typeof x.a === "string")
           .map(x => ({ q: x.q.trim(), a: x.a.trim() }));
 
-        buildFuses();
-        dots.remove();
+        buildIndexes();
+        thinking.remove();
 
         await botTypeMessage("こんにちは。質問を入力してください");
         await promptGenreSelection();
@@ -613,7 +692,7 @@
         inputEl.focus();
 
       } catch (e) {
-        dots.remove();
+        thinking.remove();
         await botTypeMessage(
           "Q&Aの読み込みに失敗しました。\n" +
           "・qa.json が同じ階層にあるか\n" +
@@ -630,7 +709,7 @@
       const text = inputEl.value;
       if (!text || !text.trim() || sendBtn.disabled) return;
 
-      // ジャンル未選択なら、質問前に選ばせる
+      // ジャンル未選択なら先に選ばせる
       if (!currentGenre) {
         inputEl.value = "";
         await promptGenreSelection();
@@ -640,9 +719,10 @@
       addMessage("user", text);
       inputEl.value = "";
 
-      const dots = addTypingDots();
-      await sleep(220);
-      dots.remove();
+      // ★考え中の「・・・」を表示
+      const thinking = addThinking();
+      await sleep(350); // “考えてる感”の間
+      thinking.remove();
 
       const r = findAnswer(text);
 
@@ -652,7 +732,8 @@
       }
 
       if (r.type === "partial") {
-        await botTypeMessage(r.item.a + "\n\n（もしかして…）",
+        await botTypeMessage(
+          r.item.a + "\n\n（もしかして…）",
           makeChips(r.suggestions, (q) => {
             inputEl.value = q;
             inputEl.focus();
@@ -676,7 +757,7 @@
     });
 
     document.getElementById("clear").addEventListener("click", async () => {
-      typingToken++; // タイピング中断
+      typingToken++;
       logEl.innerHTML = "";
       await botTypeMessage("会話をクリアしました。");
       await promptGenreSelection();
