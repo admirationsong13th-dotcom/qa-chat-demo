@@ -7,7 +7,6 @@
 
   <style>
     :root{
-      /* 添付ロゴの雰囲気：白＋シアン＋黒 */
       --accent:#00A0D0;
       --accent2:#0bb6ea;
 
@@ -37,7 +36,6 @@
     }
 
     .wrap{ max-width: 960px; margin: 0 auto; padding: 18px; }
-
     .card{
       background: var(--card);
       border: 1px solid var(--line);
@@ -99,12 +97,12 @@
       min-height: 380px;
       padding: 16px;
       overflow:auto;
-      background:
-        linear-gradient(180deg, rgba(241,245,249,.45), rgba(255,255,255,0));
+      background: linear-gradient(180deg, rgba(241,245,249,.45), rgba(255,255,255,0));
     }
 
     .msg{ display:flex; margin: 10px 0; gap:8px; }
     .msg.user{ justify-content:flex-end; }
+
     .bubble{
       max-width: 78%;
       padding: 10px 12px;
@@ -158,6 +156,7 @@
       font-size: 12px;
       line-height: 1.1;
       font-weight: 800;
+      text-align:left;
     }
     .chip:hover{ background: rgba(0,160,208,.10); }
 
@@ -226,7 +225,6 @@
     <div class="card">
       <header>
         <div class="brand">
-          <!-- logo.png を同じ階層に置くと表示されます（無ければ自動で非表示） -->
           <img class="logo" src="./logo.png" alt="BEAR JOHN" onerror="this.style.display='none'">
           <div class="titleWrap">
             <h1>デモ_ベアジョン_Q&Aチャット</h1>
@@ -248,6 +246,9 @@
     </div>
   </div>
 
+  <!-- Fuse.js（あいまい検索） -->
+  <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
+
   <script>
     const QA_JSON_PATH = "./qa.json";
 
@@ -260,6 +261,10 @@
     ];
 
     let QA = [];
+
+    // ★ここが「Fuseを使う変数」：Fuse検索の道具を入れておく箱
+    let fuse = null;
+
     const logEl = document.getElementById("log");
     const inputEl = document.getElementById("q");
     const sendBtn = document.getElementById("send");
@@ -267,8 +272,19 @@
     // タイピング中キャンセル用（会話クリア等で中断できる）
     let typingToken = 0;
 
-    function normalize(s) {
+    // 表記ゆれ吸収（軽め）
+    function replaceVariants(s){
       return (s ?? "")
+        .replace(/オススメ/g, "おすすめ")
+        .replace(/お薦め/g, "おすすめ")
+        .replace(/ｵｽｽﾒ/g, "おすすめ")
+        .replace(/JUGGLER/ig, "ジャグラー")
+        .replace(/ｼﾞｬｸﾞﾗｰ/g, "ジャグラー");
+    }
+
+    // 正規化（ゆらぎ対策）
+    function normalize(s) {
+      return replaceVariants(s)
         .toString()
         .trim()
         .toLowerCase()
@@ -338,8 +354,7 @@
     // 文字単位タイピング（吹き出しクリックでスキップ）
     async function typeText(bubble, fullText, speedMs = 18, tokenAtStart = 0) {
       let skip = false;
-      const onClick = () => { skip = true; };
-      bubble.addEventListener("click", onClick, { once: true });
+      bubble.addEventListener("click", () => { skip = true; }, { once: true });
 
       bubble.textContent = "";
       for (let i = 0; i < fullText.length; i++) {
@@ -360,7 +375,6 @@
     }
 
     async function botTypeMessage(text, extraNode) {
-      // 二重送信防止
       setReady(false);
 
       const token = ++typingToken;
@@ -368,7 +382,7 @@
 
       await typeText(bubble, text, 18, token);
 
-      if (typingToken !== token) return; // 中断されてたら何もしない
+      if (typingToken !== token) return; // 中断
 
       if (extraNode) bubble.appendChild(extraNode);
 
@@ -376,15 +390,29 @@
       inputEl.focus();
     }
 
-    // 検索（完全一致 → 部分一致）
+    // 検索（完全一致 → Fuseあいまい検索 → 最終フォールバック）
     function findAnswer(userText) {
-      const u = normalize(userText);
+      const raw = replaceVariants(userText);
+      const u = normalize(raw);
       if (!u) return { type: "empty" };
 
+      // 1) 完全一致
       for (const item of QA) {
         if (normalize(item.q) === u) return { type: "exact", item };
       }
 
+      // 2) あいまい検索（Fuse.js）
+      // Fuseが読み込めていればこちらがメイン
+      if (fuse && typeof fuse.search === "function") {
+        const results = fuse.search(raw).slice(0, 6);
+        if (results.length) {
+          const best = results[0].item;
+          const suggestions = results.map(r => r.item.q);
+          return { type: "partial", item: best, suggestions };
+        }
+      }
+
+      // 3) フォールバック（includesベース）
       const scored = QA.map(item => {
         const nq = normalize(item.q);
         let score = 0;
@@ -403,6 +431,7 @@
           suggestions: scored.slice(0, 6).map(x => x.item.q)
         };
       }
+
       return { type: "none" };
     }
 
@@ -413,6 +442,7 @@
       try {
         const res = await fetch(QA_JSON_PATH, { cache: "no-store" });
         if (!res.ok) throw new Error("fetch failed: " + res.status);
+
         const data = await res.json();
         if (!Array.isArray(data)) throw new Error("qa.json is not an array");
 
@@ -420,14 +450,26 @@
           .filter(x => x && typeof x.q === "string" && typeof x.a === "string")
           .map(x => ({ q: x.q.trim(), a: x.a.trim() }));
 
+        // Fuseの検索インデックスを作成（ここが重要）
+        // thresholdは小さいほど厳しい：0.25〜0.45で調整
+        if (window.Fuse) {
+          fuse = new Fuse(QA, {
+            keys: ["q"],
+            includeScore: true,
+            threshold: 0.35,
+            ignoreLocation: true
+          });
+        } else {
+          fuse = null; // CDNが読み込めなかった場合はフォールバックへ
+        }
+
         dots.remove();
 
         // 指定どおり：件数は表示しない／挨拶は短く
         await botTypeMessage("こんにちは。質問を入力してください");
 
         // 指定の「よくある質問」を固定表示
-        const chips = makeChips(PRESET_QUESTIONS);
-        await botTypeMessage("よくある質問：", chips);
+        await botTypeMessage("よくある質問：", makeChips(PRESET_QUESTIONS));
 
         setReady(true);
         inputEl.focus();
@@ -452,7 +494,6 @@
       addMessage("user", text);
       inputEl.value = "";
 
-      // “考えてる感”の点々 → 返答をタイピング
       const dots = addTypingDots();
       await sleep(220);
       dots.remove();
@@ -479,14 +520,12 @@
     });
 
     document.getElementById("clear").addEventListener("click", async () => {
-      // タイピングを中断
-      typingToken++;
+      typingToken++; // タイピング中断
       logEl.innerHTML = "";
       await botTypeMessage("会話をクリアしました。質問を入力してください。");
     });
 
     loadQA();
   </script>
-  <script src="https://cdn.jsdelivr.net/npm/fuse.js@6.6.2"></script>
 </body>
 </html>
